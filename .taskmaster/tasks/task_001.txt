@@ -1,6 +1,6 @@
 # Task ID: 1
 # Title: Project Setup and Environment Configuration
-# Status: pending
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: Set up a fullstack AdonisJS project with React frontend using Inertia.js as the connecting layer, configure TypeScript, and establish the development environment.
@@ -35,7 +35,7 @@ AdonisJS typically includes a `tsconfig.json` by default. Review and adjust it i
 ### Details:
 Install ESLint and Prettier along with relevant plugins (e.g., `@typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-adonis`). Create configuration files (`.eslintrc.js`, `.prettierrc.js`). Ensure the `package.json` scripts for development and build (`dev`, `build`) are correctly configured to use Vite for the frontend assets.
 
-## 5. Configure Environment Variables [pending]
+## 5. Configure Environment Variables [done]
 ### Dependencies: 1.1
 ### Description: Set up the `.env` file and configure AdonisJS to load environment variables for database connection, external services (like CDN), and application keys.
 ### Details:
