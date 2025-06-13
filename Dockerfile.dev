@@ -1,0 +1,9 @@
+# Development Dockerfile for PostgreSQL and Adminer services
+# Note: This file is a placeholder as both PostgreSQL and Adminer use pre-built images
+# defined directly in the docker-compose.dev.yml file.
+
+# This file can be left empty or used for any custom database initialization
+# scripts or extensions if needed in the future.
+
+# No build steps are required for the database services as they use
+# official Docker images (postgres:16-alpine and adminer:4.8.1).

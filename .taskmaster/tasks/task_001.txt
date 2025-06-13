@@ -3,9 +3,41 @@
 # Status: pending
 # Dependencies: None
 # Priority: high
-# Description: Set up the core project structure for both the backend (AdonisJS) and frontend (React), configure TypeScript, and establish the development environment.
+# Description: Set up a fullstack AdonisJS project with React frontend using Inertia.js as the connecting layer, configure TypeScript, and establish the development environment.
 # Details:
-Initialize AdonisJS project for the backend and a React project for the frontend, both using TypeScript. Configure linting, formatting, and basic build processes. Set up environment variables for database connection and external services.
+Initialize an AdonisJS project as the fullstack framework. Set up Inertia.js to integrate React as the frontend view layer within the AdonisJS application. Configure TypeScript for both AdonisJS and React components. Set up linting, formatting, and basic build processes. Configure environment variables for database connection, CDN service, and other external services.
 
 # Test Strategy:
-Verify that both backend and frontend projects compile without errors and basic development servers can be started.
+Verify that the AdonisJS project compiles without errors, React components render correctly through Inertia.js, and the development server can be started successfully.
+
+# Subtasks:
+## 1. Initialize AdonisJS Project [done]
+### Dependencies: None
+### Description: Initialize a new AdonisJS project using the official CLI, selecting the inertia starter kit.
+### Details:
+Use the command `adonis new <project-name> --kit=inertia`. Choose the recommended options for project structure and initial setup.
+
+## 2. Integrate Inertia.js and React [done]
+### Dependencies: 1.1
+### Description: Install and configure Inertia.js server-side adapter for AdonisJS and the client-side adapter for React. Set up the root Inertia template.
+### Details:
+Install necessary packages (`@inertiajs/inertia`, `@inertiajs/inertia-react`, `@inertiajs/server`, `react`, `react-dom`). Configure the Inertia middleware in AdonisJS. Create the root HTML template file (e.g., `resources/views/app.edge`) and set up the client-side entry point (e.g., `resources/js/app.tsx`).
+
+## 3. Configure TypeScript for Backend and Frontend [done]
+### Dependencies: 1.1, 1.2
+### Description: Set up TypeScript configuration files (`tsconfig.json`) for both the AdonisJS backend and the React frontend, ensuring compatibility with the project structure and build process.
+### Details:
+AdonisJS typically includes a `tsconfig.json` by default. Review and adjust it if necessary. Create or configure a separate `tsconfig.json` (or extend the base one) for the frontend code within the `resources/js` directory, ensuring it correctly handles React and is picked up by the build tool (Vite).
+
+## 4. Configure Linting, Formatting, and Build Process [done]
+### Dependencies: 1.1, 1.2, 1.3
+### Description: Set up ESLint and Prettier for code linting and formatting. Configure the build process (likely Vite, included with Inertia starter) for compiling frontend assets.
+### Details:
+Install ESLint and Prettier along with relevant plugins (e.g., `@typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-adonis`). Create configuration files (`.eslintrc.js`, `.prettierrc.js`). Ensure the `package.json` scripts for development and build (`dev`, `build`) are correctly configured to use Vite for the frontend assets.
+
+## 5. Configure Environment Variables [pending]
+### Dependencies: 1.1
+### Description: Set up the `.env` file and configure AdonisJS to load environment variables for database connection, external services (like CDN), and application keys.
+### Details:
+Create a `.env` file in the project root. Copy the contents of `.env.example` into `.env`. Populate essential variables like `APP_KEY`, `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`. Add placeholders or initial values for other required service variables (e.g., `CDN_URL`). Ensure AdonisJS is configured to read these variables (this is usually automatic).
+

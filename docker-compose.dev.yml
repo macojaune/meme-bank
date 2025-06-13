@@ -1,0 +1,43 @@
+services:
+  # TimescaleDB with pgvectorscale support
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: memebank_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: memebank_dev
+      POSTGRES_USER: memebank_user
+      POSTGRES_PASSWORD: memebank_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data/pgdata
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5434:5432"
+    networks:
+      - memebank_dev_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memebank_user -d memebank_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database Admin Interface
+  adminer:
+    image: adminer:latest
+    container_name: memebank_adminer_dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - memebank_dev_network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_dev_data:
+    driver: local
+
+networks:
+  memebank_dev_network:
+    driver: bridge
