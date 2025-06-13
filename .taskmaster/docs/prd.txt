@@ -20,6 +20,13 @@ To create a web platform that allows users to browse, share, and archive video m
 - Social media users interested in local memes.
 - Content creators looking for local video memes to integrate into their work.
 
+## Business Model
+- **Lifetime Access Fee**: A small one-time payment for lifetime access to the platform.
+- **Purpose**: Fees are solely to cover maintenance costs of the platform, not to generate substantial profit.
+- **Content Ownership**: Users retain full ownership of their content. The platform does not claim ownership or rights to sell user content.
+- **Platform Access**: The fee is for access to the platform's features and services only.
+- **Legal Compliance**: Legal consultation will be sought before launch to ensure all aspects of the business model comply with relevant laws and regulations.
+
 ## Features
 
 ### User Features
@@ -66,8 +73,9 @@ To create a web platform that allows users to browse, share, and archive video m
 - **Backend Framework**: AdonisJS
 - **Frontend Framework**: React
 - **Language**: TypeScript
-- **Database**: PostgreSQL or MongoDB
+- **Database**: PostgreSQL or other database with vector capabilities
 - **AI Services**: Integration with AI transcription and tagging services (e.g., Google Cloud Speech-to-Text, AWS Transcribe).
+- **CDN Service**: Content Delivery Network for efficient video content delivery and global distribution (e.g., Cloudflare, AWS CloudFront, or Akamai).
 
 ### Performance Requirements
 - Fast loading times for video content.
@@ -83,20 +91,24 @@ To create a web platform that allows users to browse, share, and archive video m
 - Ensure compliance with copyright laws and image rights.
 - Implement a clear policy for content reporting and removal.
 - Provide users with guidelines on acceptable content.
+- Consult with legal professionals regarding the lifetime access fee model and content rights.
 
 ## Milestones
 1. **Phase 1**: Research and Planning
    - Finalize feature set and technology stack.
    - Conduct market research and user surveys.
+   - Consult with legal professionals on business model and content rights.
 
 2. **Phase 2**: Development
    - Set up the development environment.
    - Implement user registration and authentication.
    - Develop video uploading and AI features.
+   - Implement payment system for lifetime access.
 
 3. **Phase 3**: Testing
    - Conduct user testing and gather feedback.
    - Fix bugs and optimize performance.
+   - Test payment processing and access control.
 
 4. **Phase 4**: Launch
    - Deploy the platform.
@@ -105,6 +117,7 @@ To create a web platform that allows users to browse, share, and archive video m
 5. **Phase 5**: Post-Launch
    - Monitor user engagement and gather feedback for improvements.
    - Plan for future updates and feature enhancements.
+   - Evaluate maintenance costs and adjust lifetime fee if necessary.
 
 ## Conclusion
-This PRD outlines the vision and requirements for the Video Meme Archive for the Caribbean. The project aims to create a valuable resource for the community while ensuring legal compliance and a positive user experience.
+This PRD outlines the vision and requirements for the Video Meme Archive for the Caribbean. The project aims to create a valuable resource for the community while ensuring legal compliance and a positive user experience. The business model focuses on sustainability through a small lifetime access fee rather than monetizing user content.

@@ -1,0 +1,43 @@
+# Task ID: 10
+# Title: Reporting and Moderation System
+# Status: pending
+# Dependencies: 2, 3, 9
+# Priority: medium
+# Description: Implement the backend APIs for users to report inappropriate content and for administrators to review reports, manage content (approve/remove), and maintain a log of actions.
+# Details:
+Create a backend API endpoint `/report` where users can submit reports against a video ID, including a reason. Implement an admin-only endpoint `/admin/reports` to view submitted reports. Create endpoints `/admin/videos/:id/remove` and `/admin/videos/:id/approve` for moderation actions. Log all moderation actions in the database. Build a basic admin UI page in the frontend to display reports and perform actions.
+
+# Test Strategy:
+As a regular user, submit reports for various videos. As an admin user, access the reports list and verify that submitted reports appear. Test removing and approving videos via the admin interface and confirm the video status and action log are updated correctly in the database.
+
+# Subtasks:
+## 1. Implement User Report Submission API [pending]
+### Dependencies: None
+### Description: Create the backend API endpoint `/report` that allows authenticated users to submit a report against a specific video ID, including a reason for the report. Store the report details in the database.
+### Details:
+Define the API endpoint `/report` (e.g., POST). Implement request validation for video ID and reason (text field). Create a database table for reports (fields: id, video_id, reporting_user_id, reason, status (e.g., 'pending'), created_at). Save the validated report data to the database.
+
+## 2. Implement Admin Report Listing API [pending]
+### Dependencies: 10.1
+### Description: Create the backend API endpoint `/admin/reports` that allows authenticated administrators to view a list of submitted reports. Implement basic filtering (e.g., by status) and pagination.
+### Details:
+Define the API endpoint `/admin/reports` (e.g., GET). Implement authentication/authorization to ensure only administrators can access it. Query the reports database table, allowing for filtering by status ('pending', 'reviewed', etc.) and implementing pagination. Return the list of reports in a suitable JSON format.
+
+## 3. Implement Moderation Action Logging Mechanism [pending]
+### Dependencies: 10.2
+### Description: Design and implement a mechanism to log all moderation actions taken by administrators (e.g., removing content, dismissing reports). This log should include details like the moderator, the action taken, the target content, and the timestamp.
+### Details:
+Create a new database table for moderation logs (fields: id, moderator_user_id, action_type (e.g., 'remove_video', 'dismiss_report'), target_video_id, report_id (optional), timestamp, notes (optional)). Create a service or utility function to easily record entries into this log table.
+
+## 4. Implement Admin Content Removal API with Logging [pending]
+### Dependencies: 10.3
+### Description: Create the backend API endpoint `/admin/videos/:id/remove` that allows administrators to mark a video as removed or hidden. Integrate the moderation action logging mechanism to record this action.
+### Details:
+Define the API endpoint `/admin/videos/:id/remove` (e.g., POST or DELETE). Implement authentication/authorization for admin access. Implement logic to update the status of the specified video (e.g., set a 'status' field to 'removed' or 'hidden'). After successfully updating the video status, use the logging mechanism (from subtask 3) to record the 'remove_video' action, including the moderator's ID and the video ID.
+
+## 5. Implement Admin Report Dismissal/Approval API with Logging [pending]
+### Dependencies: 10.4
+### Description: Create the backend API endpoint `/admin/videos/:id/approve` (or `/admin/reports/:id/dismiss`) that allows administrators to review a report and dismiss it without removing the content. Integrate the moderation action logging mechanism.
+### Details:
+Define the API endpoint `/admin/videos/:id/approve` or `/admin/reports/:id/dismiss` (e.g., POST). Implement authentication/authorization for admin access. Implement logic to update the status of the relevant report(s) for the video (e.g., set report status to 'reviewed' or 'dismissed'). After successfully updating the report status, use the logging mechanism (from subtask 3) to record the 'dismiss_report' or 'approve_video' action, including the moderator's ID and the relevant video/report ID.
+

@@ -1,0 +1,43 @@
+# Task ID: 4
+# Title: Frontend Setup and Authentication UI
+# Status: pending
+# Dependencies: 1, 3
+# Priority: high
+# Description: Set up the React frontend application structure, implement basic routing, and build user interface components for registration, login, and potentially a dashboard placeholder. Integrate with the backend authentication endpoints.
+# Details:
+Set up React Router for navigation. Create components for Login, Register, and a protected Dashboard/Home page. Implement state management (e.g., React Context, Redux, Zustand) to handle user authentication status. Make API calls to the backend authentication endpoints and handle responses.
+
+# Test Strategy:
+Manually test user registration, login, and logout flows through the frontend UI. Verify that protected routes are inaccessible without authentication and accessible after successful login.
+
+# Subtasks:
+## 1. Initialize React Project and Install Core Dependencies [pending]
+### Dependencies: None
+### Description: Set up a new React application using Create React App, Vite, or a similar tool. Install essential frontend dependencies including `react-router-dom` for routing, `axios` for API calls, and a state management library (e.g., Zustand, React Context, Redux Toolkit). Organize the initial project structure.
+### Details:
+Use `create-react-app`, `vite`, or `next.js` (if preferred) to initialize the project. Install `react-router-dom`, `axios`, and your chosen state management library (`zustand`, `@reduxjs/toolkit` and `react-redux`, or plan for React Context). Create basic folders like `src/components`, `src/pages`, `src/utils`, `src/state`.
+
+## 2. Configure Basic Application Routing [pending]
+### Dependencies: 4.1
+### Description: Set up the main application routing using `react-router-dom`. Define routes for the login page (`/login`), registration page (`/register`), and a placeholder dashboard/home page (`/dashboard` or `/`). Configure the main `App` component to use the router.
+### Details:
+Wrap the application root with `BrowserRouter` (or `HashRouter`). Use `Routes` and `Route` components to define paths. Create placeholder components for Login, Register, and Dashboard pages to test routing navigation.
+
+## 3. Develop Login and Registration UI Components [pending]
+### Dependencies: 4.1
+### Description: Create the React components for the Login and Registration forms. These components should include input fields for necessary information (e.g., username/email, password) and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.
+### Details:
+Create `LoginPage.js` and `RegisterPage.js` (or similar) in the `src/pages` directory. Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling (can be minimal).
+
+## 4. Implement Authentication State Management and Backend API Integration [pending]
+### Dependencies: 4.1, 4.3
+### Description: Set up the chosen state management solution to manage the user's authentication status (e.g., `isAuthenticated`, `user`, `token`). Implement functions to make API calls to the backend `/api/register` and `/api/login` endpoints using `axios`. Handle successful responses (storing tokens, updating auth state) and errors.
+### Details:
+Define your authentication state slice/context/store. Create asynchronous functions (e.g., `loginUser`, `registerUser`) that use `axios` to post data to the backend endpoints. On success, update the auth state and potentially store the token (e.g., in `localStorage`). On failure, handle errors (e.g., display a message). Connect these functions to the form components developed in Subtask 3.
+
+## 5. Create Protected Dashboard Route and Placeholder [pending]
+### Dependencies: 4.2, 4.4
+### Description: Implement logic to protect the `/dashboard` route, ensuring only authenticated users can access it. Redirect unauthenticated users to the login page. Create a simple Dashboard placeholder component that displays a welcome message and potentially shows user information from the authentication state.
+### Details:
+Create a `ProtectedRoute` component or use a similar pattern with `react-router-dom` that checks the authentication status from the state management. If not authenticated, use `Navigate` to redirect to `/login`. If authenticated, render the child route element (the Dashboard component). Create a basic `DashboardPage.js` component that accesses and displays user info from the auth state.
+

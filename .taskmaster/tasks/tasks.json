@@ -1,0 +1,523 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Project Setup and Environment Configuration",
+      "description": "Set up the core project structure for both the backend (AdonisJS) and frontend (React), configure TypeScript, and establish the development environment.",
+      "details": "Initialize AdonisJS project for the backend and a React project for the frontend, both using TypeScript. Configure linting, formatting, and basic build processes. Set up environment variables for database connection and external services.",
+      "testStrategy": "Verify that both backend and frontend projects compile without errors and basic development servers can be started.",
+      "priority": "high",
+      "dependencies": [],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 2,
+      "title": "Database Schema Design and Setup",
+      "description": "Design and implement the database schema using PostgreSQL (or a vector-capable alternative) to store user information, video metadata (including transcription and tags), categories, reports, and payment status.",
+      "details": "Create tables for users, videos, video_metadata, categories, tags, video_tags (many-to-many), reports, and payments. Define relationships and appropriate data types, including potentially using PostgreSQL's built-in full-text search or a vector extension for search capabilities. Implement migrations using AdonisJS Lucid.",
+      "testStrategy": "Run database migrations to ensure tables are created correctly. Verify table structures and relationships using a database client. Write basic queries to confirm data insertion and retrieval works.",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 3,
+      "title": "Backend User Authentication and Management",
+      "description": "Implement user registration, login, session management, and password recovery functionalities using AdonisJS's authentication system. Define the User model.",
+      "details": "Utilize AdonisJS Auth module. Implement endpoints for user registration (email/password, potentially social login stubs), login (email/password), logout, and password reset (request token, reset password). Ensure secure password hashing and token management. Define the User model mapping to the database schema.",
+      "testStrategy": "Use API testing tools (e.g., Postman, Insomnia) or unit tests to verify successful user registration, login with correct/incorrect credentials, logout, and the password reset flow.",
+      "priority": "high",
+      "dependencies": [
+        2
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Define User Model and Database Migration",
+          "description": "Create the User model and the corresponding database migration to define the 'users' table schema. This includes fields like email, password, and timestamps.",
+          "dependencies": [],
+          "details": "Use AdonisJS `ace make:model User` to create the model and `ace make:migration create_users_table` to create the migration. Define the schema in the migration file, including columns for `email` (unique), `password`, `created_at`, and `updated_at`. Run the migration using `ace migration:run`.",
+          "status": "pending",
+          "testStrategy": "Run the migration and verify the 'users' table is created in the database with the correct columns and constraints."
+        },
+        {
+          "id": 2,
+          "title": "Implement User Registration Endpoint",
+          "description": "Create the backend endpoint and logic for user registration. This involves receiving user data (email, password), validating it, hashing the password, and saving the new user to the database.",
+          "dependencies": [
+            1
+          ],
+          "details": "Create a controller (e.g., `AuthController`) using `ace make:controller AuthController`. Define a route `POST /register` that points to a method in this controller. Implement the method to: validate incoming request data (email, password), hash the password using AdonisJS's hashing utility, create a new User instance using the User model, and save it to the database. Return a success response.",
+          "status": "pending",
+          "testStrategy": "Send POST requests to `/register` with valid and invalid data. Verify that valid requests create a new user record in the database with a hashed password, and invalid requests return appropriate validation errors."
+        },
+        {
+          "id": 3,
+          "title": "Implement User Login and Session/Token Management",
+          "description": "Create the backend endpoint and logic for user login. This involves receiving credentials (email, password), verifying them against the database, and establishing a user session or issuing an authentication token using AdonisJS Auth.",
+          "dependencies": [
+            1
+          ],
+          "details": "Add a route `POST /login` pointing to the AuthController. Implement the method to: validate incoming credentials, use `auth.attempt(email, password)` or a similar method provided by AdonisJS Auth to verify credentials, and on success, return an authentication token (e.g., JWT or API token) or establish a session. Handle authentication failures by returning an error response.",
+          "status": "pending",
+          "testStrategy": "Send POST requests to `/login` with correct and incorrect credentials. Verify that correct credentials return an auth token/session identifier, and incorrect credentials return an authentication failure error."
+        },
+        {
+          "id": 4,
+          "title": "Implement User Logout Endpoint",
+          "description": "Create the backend endpoint and logic for user logout. This involves invalidating the current user's session or authentication token.",
+          "dependencies": [
+            3
+          ],
+          "details": "Add a route `POST /logout` pointing to the AuthController. This route should be protected by authentication middleware. Implement the method to use `auth.logout()` (for sessions) or `auth.revoke()` (for tokens) to invalidate the user's current authentication state. Return a success response.",
+          "status": "pending",
+          "testStrategy": "Log in a user to obtain a token/session. Send a POST request to `/logout` with the valid token/session. Attempt to access a protected route using the same token/session and verify that access is denied."
+        },
+        {
+          "id": 5,
+          "title": "Implement Password Recovery Flow",
+          "description": "Implement the backend endpoints and logic for the password recovery process, including requesting a reset token and resetting the password using the token.",
+          "dependencies": [
+            1
+          ],
+          "details": "Add routes `POST /forgot-password` and `POST /reset-password`. Implement the `/forgot-password` method: validate email, find the user, generate a secure unique token, save the token and its expiry time to the user record (may require adding columns to the users table in migration 1), and simulate or actually send an email containing a link with the token. Implement the `/reset-password` method: validate input (token, new password, password confirmation), find the user by the token, check token validity and expiry, hash the new password, update the user's password, and invalidate the token.",
+          "status": "pending",
+          "testStrategy": "For `/forgot-password`: Send a POST request with a registered email. Verify that a token is generated and stored for the user, and that an email simulation/log shows the reset link. For `/reset-password`: Use a generated token, send a POST request with the token and new password. Verify the user's password is updated in the database and the token is invalidated. Test with invalid/expired tokens."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Frontend Setup and Authentication UI",
+      "description": "Set up the React frontend application structure, implement basic routing, and build user interface components for registration, login, and potentially a dashboard placeholder. Integrate with the backend authentication endpoints.",
+      "details": "Set up React Router for navigation. Create components for Login, Register, and a protected Dashboard/Home page. Implement state management (e.g., React Context, Redux, Zustand) to handle user authentication status. Make API calls to the backend authentication endpoints and handle responses.",
+      "testStrategy": "Manually test user registration, login, and logout flows through the frontend UI. Verify that protected routes are inaccessible without authentication and accessible after successful login.",
+      "priority": "high",
+      "dependencies": [
+        1,
+        3
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Initialize React Project and Install Core Dependencies",
+          "description": "Set up a new React application using Create React App, Vite, or a similar tool. Install essential frontend dependencies including `react-router-dom` for routing, `axios` for API calls, and a state management library (e.g., Zustand, React Context, Redux Toolkit). Organize the initial project structure.",
+          "dependencies": [],
+          "details": "Use `create-react-app`, `vite`, or `next.js` (if preferred) to initialize the project. Install `react-router-dom`, `axios`, and your chosen state management library (`zustand`, `@reduxjs/toolkit` and `react-redux`, or plan for React Context). Create basic folders like `src/components`, `src/pages`, `src/utils`, `src/state`.",
+          "status": "pending",
+          "testStrategy": "Verify project initialization by running the development server. Check `package.json` to confirm dependencies are installed correctly."
+        },
+        {
+          "id": 2,
+          "title": "Configure Basic Application Routing",
+          "description": "Set up the main application routing using `react-router-dom`. Define routes for the login page (`/login`), registration page (`/register`), and a placeholder dashboard/home page (`/dashboard` or `/`). Configure the main `App` component to use the router.",
+          "dependencies": [
+            1
+          ],
+          "details": "Wrap the application root with `BrowserRouter` (or `HashRouter`). Use `Routes` and `Route` components to define paths. Create placeholder components for Login, Register, and Dashboard pages to test routing navigation.",
+          "status": "pending",
+          "testStrategy": "Navigate manually to `/login`, `/register`, and `/dashboard` in the browser to ensure the correct placeholder component is rendered for each route."
+        },
+        {
+          "id": 3,
+          "title": "Develop Login and Registration UI Components",
+          "description": "Create the React components for the Login and Registration forms. These components should include input fields for necessary information (e.g., username/email, password) and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.",
+          "dependencies": [
+            1
+          ],
+          "details": "Create `LoginPage.js` and `RegisterPage.js` (or similar) in the `src/pages` directory. Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling (can be minimal).",
+          "status": "pending",
+          "testStrategy": "Render the components in isolation or via the routes configured in Subtask 2. Verify that input fields are present and that typing updates the component's internal state (e.g., using React DevTools)."
+        },
+        {
+          "id": 4,
+          "title": "Implement Authentication State Management and Backend API Integration",
+          "description": "Set up the chosen state management solution to manage the user's authentication status (e.g., `isAuthenticated`, `user`, `token`). Implement functions to make API calls to the backend `/api/register` and `/api/login` endpoints using `axios`. Handle successful responses (storing tokens, updating auth state) and errors.",
+          "dependencies": [
+            1,
+            3
+          ],
+          "details": "Define your authentication state slice/context/store. Create asynchronous functions (e.g., `loginUser`, `registerUser`) that use `axios` to post data to the backend endpoints. On success, update the auth state and potentially store the token (e.g., in `localStorage`). On failure, handle errors (e.g., display a message). Connect these functions to the form components developed in Subtask 3.",
+          "status": "pending",
+          "testStrategy": "Use mock API calls initially or connect to the actual backend if available. Test successful login/registration and error handling by submitting forms with valid/invalid data. Verify that the authentication state updates correctly."
+        },
+        {
+          "id": 5,
+          "title": "Create Protected Dashboard Route and Placeholder",
+          "description": "Implement logic to protect the `/dashboard` route, ensuring only authenticated users can access it. Redirect unauthenticated users to the login page. Create a simple Dashboard placeholder component that displays a welcome message and potentially shows user information from the authentication state.",
+          "dependencies": [
+            2,
+            4
+          ],
+          "details": "Create a `ProtectedRoute` component or use a similar pattern with `react-router-dom` that checks the authentication status from the state management. If not authenticated, use `Navigate` to redirect to `/login`. If authenticated, render the child route element (the Dashboard component). Create a basic `DashboardPage.js` component that accesses and displays user info from the auth state.",
+          "status": "pending",
+          "testStrategy": "Attempt to access `/dashboard` directly when not logged in; verify redirection to `/login`. Log in successfully and then navigate to `/dashboard`; verify access and that user info is displayed. Log out (if logout functionality is added, otherwise clear local storage/state manually) and try accessing `/dashboard` again."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Payment System Integration and Access Control",
+      "description": "Integrate a payment gateway (e.g., Stripe, PayPal) to handle the one-time lifetime access fee. Implement the payment flow and update the user's status in the database upon successful payment. Implement middleware to restrict features like video upload to paying users.",
+      "details": "Choose a payment gateway and integrate its API for processing one-time payments. Create backend endpoints to handle payment initiation and webhook callbacks for confirmation. Update the user record in the database (e.g., add a `is_paid` boolean or a `paid_at` timestamp). Implement an AdonisJS middleware to check the user's payment status before allowing access to paid features like video upload.",
+      "testStrategy": "Use the payment gateway's sandbox environment to simulate successful and failed payments. Verify that the user's database record is updated correctly after a successful payment. Test that the upload feature is blocked for unpaid users and allowed for paid users.",
+      "priority": "high",
+      "dependencies": [
+        2,
+        3
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 6,
+      "title": "Video Upload Backend and CDN Integration",
+      "description": "Implement the backend API endpoint for video uploads. Configure and integrate with a chosen CDN (Cloudflare, AWS CloudFront, or Akamai) to handle video storage and serving directly from the upload endpoint.",
+      "details": "Create an AdonisJS endpoint to receive video files. Implement logic to upload the received file directly to the configured CDN's storage service (e.g., Cloudflare R2, AWS S3 integrated with CloudFront). Store the CDN URL and initial metadata (uploader, filename, size) in the database. Ensure file type validation (MP4, AVI, etc.) and size limits.",
+      "testStrategy": "Test uploading various video formats and sizes via the API. Verify that files are successfully stored on the CDN and the correct URL and metadata are saved in the database. Test with invalid file types and sizes to ensure proper error handling.",
+      "priority": "high",
+      "dependencies": [
+        2,
+        5
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Create Video Upload Endpoint and Handle File Reception",
+          "description": "Set up the basic AdonisJS route and controller action to handle POST requests for video uploads. Configure the request body parser to accept multipart/form-data and receive the uploaded video file.",
+          "dependencies": [],
+          "details": "Define a new route (e.g., POST /videos/upload). Create a corresponding controller method. Use `request.file()` or similar AdonisJS features to access the uploaded file object. Initially, just log file details or save to a temporary location to confirm reception.",
+          "status": "pending",
+          "testStrategy": "Use a tool like Postman or curl to send a multipart/form-data request with a small dummy file to the new endpoint and verify that the backend receives the file data correctly."
+        },
+        {
+          "id": 2,
+          "title": "Implement File Validation (Type and Size)",
+          "description": "Add validation logic to check the uploaded file's mime type against a list of allowed video types (e.g., video/mp4, video/avi) and its size against a defined maximum limit. Return an error response if validation fails.",
+          "dependencies": [
+            1
+          ],
+          "details": "Within the controller method created in subtask 1, before processing the file further, use AdonisJS validation features or manual checks on the file object's `mimeType` and `size` properties. Define allowed types and max size in configuration. Return a 400 Bad Request response with a clear error message on validation failure.",
+          "status": "pending",
+          "testStrategy": "Test with files of incorrect types (e.g., image, text file) and files exceeding the size limit. Verify that the endpoint returns the correct validation error response (HTTP 400)."
+        },
+        {
+          "id": 3,
+          "title": "Integrate with CDN Storage and Upload File",
+          "description": "Configure the chosen CDN's storage service (e.g., Cloudflare R2, AWS S3) and implement the logic to upload the validated video file directly from the backend to the CDN storage bucket. Obtain the public URL of the uploaded file.",
+          "dependencies": [
+            2
+          ],
+          "details": "Choose a CDN and set up a storage bucket. Install the relevant SDK (e.g., AWS SDK, Cloudflare R2 client). Configure credentials securely. Modify the controller logic to read the validated file stream/buffer and upload it to the CDN bucket. Ensure the upload is efficient (e.g., streaming). Capture the resulting public URL provided by the CDN.",
+          "status": "pending",
+          "testStrategy": "Use a valid video file that passes validation. Upload it via the endpoint. Verify that the file appears in the configured CDN storage bucket and that the backend successfully obtains the correct public URL."
+        },
+        {
+          "id": 4,
+          "title": "Store Video Metadata in Database",
+          "description": "Define a database model/schema for storing video metadata. After a successful upload to the CDN, save a new record in the database including the CDN URL, uploader ID (if applicable), original filename, file size, and mime type.",
+          "dependencies": [
+            3
+          ],
+          "details": "Create a database migration to add a `videos` table with columns like `id`, `uploader_id`, `original_filename`, `cdn_url`, `size`, `mime_type`, `created_at`, `updated_at`. Define an AdonisJS Lucid model for `Video`. In the controller, after getting the CDN URL (Subtask 3), create and save a new `Video` model instance with the collected metadata.",
+          "status": "pending",
+          "testStrategy": "Upload a valid video file. Verify that the file is uploaded to the CDN and that a corresponding record with correct metadata (including the CDN URL) is created in the database."
+        },
+        {
+          "id": 5,
+          "title": "Implement Comprehensive Error Handling and API Response",
+          "description": "Add robust error handling for potential failures during CDN upload or database saving. Ensure the API returns appropriate HTTP status codes and informative JSON responses for success, validation errors, and internal server errors.",
+          "dependencies": [
+            2,
+            3,
+            4
+          ],
+          "details": "Wrap the CDN upload and database save logic in try-catch blocks. Handle specific exceptions from the CDN SDK or database operations. Return a 500 Internal Server Error for unexpected backend issues. For successful uploads, return a 201 Created response including the video's metadata (e.g., database ID, CDN URL). Ensure validation errors (from Subtask 2) return 400.",
+          "status": "pending",
+          "testStrategy": "Test various failure scenarios: attempt upload when CDN credentials are wrong, simulate a database error during save. Verify that the endpoint returns the correct error status codes (e.g., 500) and informative error messages. Test a successful upload and verify the 201 response contains the expected data."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "AI Service Integration for Transcription and Tagging",
+      "description": "Integrate with AI services (Google Cloud Speech-to-Text, AWS Transcribe) for automatic video transcription and implement logic to generate relevant tags based on the content and context. Process videos asynchronously after upload.",
+      "details": "Set up background jobs or queues (e.g., using AdonisJS Queues) to process videos after they are uploaded and stored on the CDN. Call the chosen AI transcription service API with the video URL. Process the transcription text to extract keywords or generate tags using NLP techniques or another AI service. Store the full transcription and generated tags in the database associated with the video.",
+      "testStrategy": "Upload videos with clear speech and relevant visual content. Verify that background jobs are triggered. Check the database to confirm that transcriptions and relevant tags are accurately generated and stored for processed videos.",
+      "priority": "high",
+      "dependencies": [
+        2,
+        6
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Setup Background Job Infrastructure",
+          "description": "Configure and set up the background job processing system (e.g., AdonisJS Queues) and define a basic job structure for video processing.",
+          "dependencies": [],
+          "details": "Install and configure the chosen queue package (e.g., @adonisjs/queue). Set up the necessary drivers (e.g., Redis, database). Create a base job class or structure for handling video processing tasks. Ensure the queue worker can be started and jobs can be dispatched and processed (even if the job body is initially empty).",
+          "status": "pending",
+          "testStrategy": "Write a simple test job that logs a message or performs a trivial task. Dispatch this job and verify that the queue worker picks it up and executes it successfully."
+        },
+        {
+          "id": 2,
+          "title": "Implement Video Processing Job Trigger",
+          "description": "Modify the video upload workflow to dispatch the video processing job to the queue after a video is successfully uploaded and its metadata is saved.",
+          "dependencies": [
+            1
+          ],
+          "details": "Identify the point in the video upload controller or service where the video is confirmed as uploaded and its database record is created. Add logic at this point to dispatch the video processing job (created in Subtask 1), passing necessary information like the video ID or CDN URL.",
+          "status": "pending",
+          "testStrategy": "Upload a video through the application's UI or API. Verify that a new job is added to the configured queue. Check queue monitoring tools or logs."
+        },
+        {
+          "id": 3,
+          "title": "Integrate with Transcription Service API",
+          "description": "Implement the core logic within the video processing job to fetch the video URL from the database/metadata and call the chosen AI transcription service (GCP Speech-to-Text or AWS Transcribe) API.",
+          "dependencies": [
+            2
+          ],
+          "details": "Inside the job handler, retrieve the video record using the ID passed during dispatch. Get the CDN URL. Set up the necessary SDK/client for the chosen AI service. Implement the API call to initiate transcription, handling asynchronous responses or polling if required by the service. Log the API call status and initial response.",
+          "status": "pending",
+          "testStrategy": "Modify the job to call the transcription API with a known test video URL (or a mock URL if possible). Verify that the API call is made successfully and the initial response (e.g., job ID, status) is received and logged."
+        },
+        {
+          "id": 4,
+          "title": "Implement Transcription Processing and Tag Generation",
+          "description": "Add logic within the video processing job to retrieve the completed transcription text from the AI service and process it to generate relevant tags.",
+          "dependencies": [
+            3
+          ],
+          "details": "After the transcription is complete (either via polling or a callback mechanism), retrieve the full transcription text. Implement logic to analyze the text for keywords, phrases, or topics. This could involve simple keyword extraction, using an NLP library, or calling another AI service for topic modeling/tagging. Generate a list of potential tags.",
+          "status": "pending",
+          "testStrategy": "Use a known transcription text (either real or mock) as input to the tag generation logic. Verify that the expected tags are generated based on the implemented rules or algorithms."
+        },
+        {
+          "id": 5,
+          "title": "Store Transcription and Tags in Database",
+          "description": "Finalize the video processing job by implementing the logic to save the full transcription text and the generated tags to the database, associated with the original video record.",
+          "dependencies": [
+            4
+          ],
+          "details": "Inside the job handler, after obtaining the transcription text (Subtask 3) and generating tags (Subtask 4), use the ORM to update the video record. Store the full transcription text in a designated field (e.g., `transcription`). Store the tags, potentially in a separate tags table with a many-to-many relationship or as a serialized array/JSON field on the video record, depending on the schema design.",
+          "status": "pending",
+          "testStrategy": "Run the complete job pipeline with a test video. After the job finishes, query the database for the video record and verify that the `transcription` field is populated with the expected text and the associated tags are correctly stored."
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Search and Browsing Backend APIs",
+      "description": "Implement backend APIs for searching videos based on keywords or transcribed quotes and for browsing videos filtered by categories, tags, and popularity.",
+      "details": "Utilize PostgreSQL's full-text search capabilities on the transcription and tag data, or implement vector search if using a vector-capable database/extension. Create API endpoints for `/search?q=keyword` and `/browse?category=humor&tag=caribbean&sort=popular`. Implement database queries to efficiently retrieve filtered and sorted video lists.",
+      "testStrategy": "Write API tests to search using keywords found in transcriptions and tags. Test browsing endpoints with different category, tag, and sorting parameters. Verify that relevant videos are returned and filtering/sorting works as expected.",
+      "priority": "high",
+      "dependencies": [
+        2,
+        7
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Prepare Database for Search and Browse",
+          "description": "Modify the database schema and configure necessary features (like full-text search or vector extensions) to support efficient searching on video transcriptions and tags, and filtering/sorting on categories, tags, and popularity.",
+          "dependencies": [],
+          "details": "Based on the chosen database (e.g., PostgreSQL), add necessary columns or tables for categories, tags, and popularity metrics. Implement PostgreSQL's `tsvector` and `tsquery` for full-text search on transcription and tag fields. Create appropriate indexes (e.g., GIN indexes for `tsvector`, B-tree indexes for categories, tags, popularity). If using a vector database/extension, set up vector columns and indexes.",
+          "status": "pending",
+          "testStrategy": "Verify schema changes are applied correctly. Test index creation and performance using sample data and `EXPLAIN` queries. Ensure full-text search configuration (dictionaries, parsers) is correct."
+        },
+        {
+          "id": 2,
+          "title": "Implement Core Search Query Logic",
+          "description": "Develop the database query logic to perform searches based on keywords or transcribed quotes using the prepared database features.",
+          "dependencies": [
+            1
+          ],
+          "details": "Write SQL queries (or ORM equivalents) that utilize the full-text search functions (`to_tsquery`, `@@`, `ts_rank`) on the transcription and tag fields. Handle different search query types (e.g., phrase search, boolean operators). Implement logic to retrieve relevant video metadata based on search results. Consider pagination for large result sets.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the search query function. Test with various keywords, phrases, and quotes, including edge cases (special characters, common words). Verify that relevant videos are returned and ranked appropriately based on the search query."
+        },
+        {
+          "id": 3,
+          "title": "Implement Core Browse Query Logic",
+          "description": "Develop the database query logic to filter and sort videos based on categories, tags, and popularity.",
+          "dependencies": [
+            1
+          ],
+          "details": "Write SQL queries (or ORM equivalents) that filter videos based on provided category and tag parameters. Implement sorting logic based on a popularity metric (e.g., view count, likes, recency). Combine filtering and sorting logic into a single query. Implement pagination.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the browse query function. Test filtering by single/multiple categories and tags. Test sorting by popularity in ascending/descending order. Test combinations of filters and sorting. Verify pagination works correctly."
+        },
+        {
+          "id": 4,
+          "title": "Create Search API Endpoint (`/search`)",
+          "description": "Implement the backend API endpoint `/search` that accepts a query parameter (`q`) and returns search results by calling the core search query logic.",
+          "dependencies": [
+            2
+          ],
+          "details": "Define the API route `/search` using the chosen web framework. Implement request handling to parse the `q` query parameter. Call the core search query logic (implemented in subtask 2) with the parsed query. Format the results into a standard JSON response structure, including video metadata and potentially pagination information. Implement error handling for invalid requests or database errors.",
+          "status": "pending",
+          "testStrategy": "Use integration tests to call the `/search` endpoint with various valid and invalid queries. Verify correct HTTP status codes (e.g., 200, 400, 500). Check that the JSON response structure is correct and contains expected data based on the search query."
+        },
+        {
+          "id": 5,
+          "title": "Create Browse API Endpoint (`/browse`)",
+          "description": "Implement the backend API endpoint `/browse` that accepts filter (category, tag) and sort (popularity) parameters and returns a list of videos by calling the core browse query logic.",
+          "dependencies": [
+            3
+          ],
+          "details": "Define the API route `/browse` using the chosen web framework. Implement request handling to parse query parameters like `category`, `tag`, and `sort`. Call the core browse query logic (implemented in subtask 3) with the parsed parameters. Format the results into a standard JSON response structure, including video metadata and pagination information. Implement error handling for invalid parameters or database errors.",
+          "status": "pending",
+          "testStrategy": "Use integration tests to call the `/browse` endpoint with various combinations of category, tag, and sort parameters. Test edge cases like missing parameters or invalid values. Verify correct HTTP status codes and that the returned video list is correctly filtered and sorted according to the parameters."
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Frontend Video Display, Search, and Browsing UI",
+      "description": "Build the frontend user interface for browsing video categories, displaying video lists, implementing the search bar, showing search results, and providing a video playback interface. Integrate with the backend search and browsing APIs.",
+      "details": "Create React components for a video grid/list display, a search input field, category filters, and a video player component (e.g., using the HTML5 video tag or a library like ReactPlayer). Fetch data from the backend `/browse` and `/search` endpoints and render the results. Implement pagination or infinite scrolling if necessary.",
+      "testStrategy": "Manually test browsing different categories and applying filters. Use the search bar with various queries and verify that relevant results are displayed. Ensure videos play correctly in the integrated player.",
+      "priority": "high",
+      "dependencies": [
+        4,
+        8
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement Core Layout and Initial Video List Display",
+          "description": "Create the main page layout components (e.g., header, main content area). Develop reusable React components for displaying a single video item (e.g., `VideoCard`) and a list/grid of video items (`VideoList`). Fetch initial video data (e.g., a default browse category or recent videos) from the backend `/browse` endpoint upon component mount and display it using the `VideoList` component.",
+          "dependencies": [],
+          "details": "Use React functional components and hooks for state management and data fetching. Implement basic styling for the layout and video cards. Handle loading and error states for the initial data fetch.",
+          "status": "pending",
+          "testStrategy": "Verify that the main page renders correctly, the initial API call to `/browse` is made, and the fetched video data is displayed in the `VideoList` component."
+        },
+        {
+          "id": 2,
+          "title": "Add Category Navigation and Filtering",
+          "description": "Develop a component for displaying video categories (e.g., `CategoryFilter` or navigation links). Implement logic to fetch available categories (if provided by the API) or use a predefined list. When a category is selected, trigger a new API call to the `/browse` endpoint with the selected category ID/slug and update the `VideoList` display with the results.",
+          "dependencies": [
+            1
+          ],
+          "details": "Integrate the category component into the main layout. Use state to track the currently selected category. Update the data fetching logic to include the category parameter in the `/browse` API call. Consider how to visually indicate the active category.",
+          "status": "pending",
+          "testStrategy": "Ensure categories are displayed. Select different categories and verify that the API call includes the correct category parameter and the displayed video list updates accordingly."
+        },
+        {
+          "id": 3,
+          "title": "Implement Search Bar Component",
+          "description": "Create a `SearchBar` React component containing an input field and potentially a search button. Implement state management within the component to track the user's input query. Add event handlers for input changes and triggering a search action (e.g., on button click or 'Enter' key press).",
+          "dependencies": [
+            1
+          ],
+          "details": "Place the `SearchBar` component in the main page layout, typically in the header. Use controlled components for the input field. The search action should ideally trigger a function passed down from a parent component.",
+          "status": "pending",
+          "testStrategy": "Verify the `SearchBar` component renders correctly. Type text into the input field and ensure the component's internal state updates. Trigger the search action (e.g., click button) and confirm the associated event handler is called with the current query."
+        },
+        {
+          "id": 4,
+          "title": "Integrate Search API and Display Search Results",
+          "description": "Connect the search action from the `SearchBar` (Subtask 3) to call the backend `/search` API with the user's query. Modify the main page logic to handle the response from the `/search` API. Implement logic to switch the display in the main content area between the browse results (from Subtask 1/2) and the search results based on whether a search has been performed and results are available. Reuse the `VideoList` component to display search results.",
+          "dependencies": [
+            1,
+            3
+          ],
+          "details": "Manage state in a parent component to hold both browse and search results, and a flag indicating whether search results should be shown. Implement the API call to `/search`. Handle cases with no search results. Consider clearing search results when the search bar is cleared or a category is selected.",
+          "status": "pending",
+          "testStrategy": "Enter a search query and trigger the search. Verify the API call to `/search` is made with the correct query. Ensure the displayed video list switches to show the search results. Test with queries that return results and queries that return no results."
+        },
+        {
+          "id": 5,
+          "title": "Implement Video Playback Interface",
+          "description": "Create a `VideoPlayer` React component, potentially using the HTML5 `<video>` tag or a library like ReactPlayer. Implement logic so that when a user clicks on a `VideoCard` (in either browse or search results), the `VideoPlayer` component is displayed, hiding the list view, and starts playing the selected video using its source URL.",
+          "dependencies": [
+            4
+          ],
+          "details": "Add state to the main page component to track which video (if any) is currently selected for playback. Conditionally render the `VideoPlayer` component based on this state. Pass the selected video's source URL to the `VideoPlayer`. Implement a way to close the player and return to the list view (e.g., a close button).",
+          "status": "pending",
+          "testStrategy": "Click on a video thumbnail/card from both the browse view and the search results view. Verify that the video player appears, the list view is hidden, and the correct video starts playing. Test the close functionality to return to the list view."
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Reporting and Moderation System",
+      "description": "Implement the backend APIs for users to report inappropriate content and for administrators to review reports, manage content (approve/remove), and maintain a log of actions.",
+      "details": "Create a backend API endpoint `/report` where users can submit reports against a video ID, including a reason. Implement an admin-only endpoint `/admin/reports` to view submitted reports. Create endpoints `/admin/videos/:id/remove` and `/admin/videos/:id/approve` for moderation actions. Log all moderation actions in the database. Build a basic admin UI page in the frontend to display reports and perform actions.",
+      "testStrategy": "As a regular user, submit reports for various videos. As an admin user, access the reports list and verify that submitted reports appear. Test removing and approving videos via the admin interface and confirm the video status and action log are updated correctly in the database.",
+      "priority": "medium",
+      "dependencies": [
+        2,
+        3,
+        9
+      ],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement User Report Submission API",
+          "description": "Create the backend API endpoint `/report` that allows authenticated users to submit a report against a specific video ID, including a reason for the report. Store the report details in the database.",
+          "dependencies": [],
+          "details": "Define the API endpoint `/report` (e.g., POST). Implement request validation for video ID and reason (text field). Create a database table for reports (fields: id, video_id, reporting_user_id, reason, status (e.g., 'pending'), created_at). Save the validated report data to the database.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the API endpoint validation and database insertion logic. Use integration tests to verify a successful report submission via an HTTP request."
+        },
+        {
+          "id": 2,
+          "title": "Implement Admin Report Listing API",
+          "description": "Create the backend API endpoint `/admin/reports` that allows authenticated administrators to view a list of submitted reports. Implement basic filtering (e.g., by status) and pagination.",
+          "dependencies": [
+            1
+          ],
+          "details": "Define the API endpoint `/admin/reports` (e.g., GET). Implement authentication/authorization to ensure only administrators can access it. Query the reports database table, allowing for filtering by status ('pending', 'reviewed', etc.) and implementing pagination. Return the list of reports in a suitable JSON format.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the data retrieval and filtering logic. Use integration tests to verify admin access control and the correct structure and content of the returned report list."
+        },
+        {
+          "id": 3,
+          "title": "Implement Moderation Action Logging Mechanism",
+          "description": "Design and implement a mechanism to log all moderation actions taken by administrators (e.g., removing content, dismissing reports). This log should include details like the moderator, the action taken, the target content, and the timestamp.",
+          "dependencies": [
+            2
+          ],
+          "details": "Create a new database table for moderation logs (fields: id, moderator_user_id, action_type (e.g., 'remove_video', 'dismiss_report'), target_video_id, report_id (optional), timestamp, notes (optional)). Create a service or utility function to easily record entries into this log table.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the logging function/service to ensure it correctly formats and saves log entries to the database."
+        },
+        {
+          "id": 4,
+          "title": "Implement Admin Content Removal API with Logging",
+          "description": "Create the backend API endpoint `/admin/videos/:id/remove` that allows administrators to mark a video as removed or hidden. Integrate the moderation action logging mechanism to record this action.",
+          "dependencies": [
+            3
+          ],
+          "details": "Define the API endpoint `/admin/videos/:id/remove` (e.g., POST or DELETE). Implement authentication/authorization for admin access. Implement logic to update the status of the specified video (e.g., set a 'status' field to 'removed' or 'hidden'). After successfully updating the video status, use the logging mechanism (from subtask 3) to record the 'remove_video' action, including the moderator's ID and the video ID.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the video status update logic. Use integration tests to verify admin access, successful video status change, and that a corresponding log entry is created."
+        },
+        {
+          "id": 5,
+          "title": "Implement Admin Report Dismissal/Approval API with Logging",
+          "description": "Create the backend API endpoint `/admin/videos/:id/approve` (or `/admin/reports/:id/dismiss`) that allows administrators to review a report and dismiss it without removing the content. Integrate the moderation action logging mechanism.",
+          "dependencies": [
+            4
+          ],
+          "details": "Define the API endpoint `/admin/videos/:id/approve` or `/admin/reports/:id/dismiss` (e.g., POST). Implement authentication/authorization for admin access. Implement logic to update the status of the relevant report(s) for the video (e.g., set report status to 'reviewed' or 'dismissed'). After successfully updating the report status, use the logging mechanism (from subtask 3) to record the 'dismiss_report' or 'approve_video' action, including the moderator's ID and the relevant video/report ID.",
+          "status": "pending",
+          "testStrategy": "Write unit tests for the report status update logic. Use integration tests to verify admin access, successful report status change, and that a corresponding log entry is created."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Task ID: 5
+# Title: Payment System Integration and Access Control
+# Status: pending
+# Dependencies: 2, 3
+# Priority: high
+# Description: Integrate a payment gateway (e.g., Stripe, PayPal) to handle the one-time lifetime access fee. Implement the payment flow and update the user's status in the database upon successful payment. Implement middleware to restrict features like video upload to paying users.
+# Details:
+Choose a payment gateway and integrate its API for processing one-time payments. Create backend endpoints to handle payment initiation and webhook callbacks for confirmation. Update the user record in the database (e.g., add a `is_paid` boolean or a `paid_at` timestamp). Implement an AdonisJS middleware to check the user's payment status before allowing access to paid features like video upload.
+
+# Test Strategy:
+Use the payment gateway's sandbox environment to simulate successful and failed payments. Verify that the user's database record is updated correctly after a successful payment. Test that the upload feature is blocked for unpaid users and allowed for paid users.

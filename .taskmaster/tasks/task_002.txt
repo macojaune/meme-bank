@@ -1,0 +1,11 @@
+# Task ID: 2
+# Title: Database Schema Design and Setup
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Design and implement the database schema using PostgreSQL (or a vector-capable alternative) to store user information, video metadata (including transcription and tags), categories, reports, and payment status.
+# Details:
+Create tables for users, videos, video_metadata, categories, tags, video_tags (many-to-many), reports, and payments. Define relationships and appropriate data types, including potentially using PostgreSQL's built-in full-text search or a vector extension for search capabilities. Implement migrations using AdonisJS Lucid.
+
+# Test Strategy:
+Run database migrations to ensure tables are created correctly. Verify table structures and relationships using a database client. Write basic queries to confirm data insertion and retrieval works.

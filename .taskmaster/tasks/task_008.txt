@@ -1,0 +1,43 @@
+# Task ID: 8
+# Title: Search and Browsing Backend APIs
+# Status: pending
+# Dependencies: 2, 7
+# Priority: high
+# Description: Implement backend APIs for searching videos based on keywords or transcribed quotes and for browsing videos filtered by categories, tags, and popularity.
+# Details:
+Utilize PostgreSQL's full-text search capabilities on the transcription and tag data, or implement vector search if using a vector-capable database/extension. Create API endpoints for `/search?q=keyword` and `/browse?category=humor&tag=caribbean&sort=popular`. Implement database queries to efficiently retrieve filtered and sorted video lists.
+
+# Test Strategy:
+Write API tests to search using keywords found in transcriptions and tags. Test browsing endpoints with different category, tag, and sorting parameters. Verify that relevant videos are returned and filtering/sorting works as expected.
+
+# Subtasks:
+## 1. Prepare Database for Search and Browse [pending]
+### Dependencies: None
+### Description: Modify the database schema and configure necessary features (like full-text search or vector extensions) to support efficient searching on video transcriptions and tags, and filtering/sorting on categories, tags, and popularity.
+### Details:
+Based on the chosen database (e.g., PostgreSQL), add necessary columns or tables for categories, tags, and popularity metrics. Implement PostgreSQL's `tsvector` and `tsquery` for full-text search on transcription and tag fields. Create appropriate indexes (e.g., GIN indexes for `tsvector`, B-tree indexes for categories, tags, popularity). If using a vector database/extension, set up vector columns and indexes.
+
+## 2. Implement Core Search Query Logic [pending]
+### Dependencies: 8.1
+### Description: Develop the database query logic to perform searches based on keywords or transcribed quotes using the prepared database features.
+### Details:
+Write SQL queries (or ORM equivalents) that utilize the full-text search functions (`to_tsquery`, `@@`, `ts_rank`) on the transcription and tag fields. Handle different search query types (e.g., phrase search, boolean operators). Implement logic to retrieve relevant video metadata based on search results. Consider pagination for large result sets.
+
+## 3. Implement Core Browse Query Logic [pending]
+### Dependencies: 8.1
+### Description: Develop the database query logic to filter and sort videos based on categories, tags, and popularity.
+### Details:
+Write SQL queries (or ORM equivalents) that filter videos based on provided category and tag parameters. Implement sorting logic based on a popularity metric (e.g., view count, likes, recency). Combine filtering and sorting logic into a single query. Implement pagination.
+
+## 4. Create Search API Endpoint (`/search`) [pending]
+### Dependencies: 8.2
+### Description: Implement the backend API endpoint `/search` that accepts a query parameter (`q`) and returns search results by calling the core search query logic.
+### Details:
+Define the API route `/search` using the chosen web framework. Implement request handling to parse the `q` query parameter. Call the core search query logic (implemented in subtask 2) with the parsed query. Format the results into a standard JSON response structure, including video metadata and potentially pagination information. Implement error handling for invalid requests or database errors.
+
+## 5. Create Browse API Endpoint (`/browse`) [pending]
+### Dependencies: 8.3
+### Description: Implement the backend API endpoint `/browse` that accepts filter (category, tag) and sort (popularity) parameters and returns a list of videos by calling the core browse query logic.
+### Details:
+Define the API route `/browse` using the chosen web framework. Implement request handling to parse query parameters like `category`, `tag`, and `sort`. Call the core browse query logic (implemented in subtask 3) with the parsed parameters. Format the results into a standard JSON response structure, including video metadata and pagination information. Implement error handling for invalid parameters or database errors.
+

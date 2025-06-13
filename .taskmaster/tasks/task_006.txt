@@ -1,0 +1,43 @@
+# Task ID: 6
+# Title: Video Upload Backend and CDN Integration
+# Status: pending
+# Dependencies: 2, 5
+# Priority: high
+# Description: Implement the backend API endpoint for video uploads. Configure and integrate with a chosen CDN (Cloudflare, AWS CloudFront, or Akamai) to handle video storage and serving directly from the upload endpoint.
+# Details:
+Create an AdonisJS endpoint to receive video files. Implement logic to upload the received file directly to the configured CDN's storage service (e.g., Cloudflare R2, AWS S3 integrated with CloudFront). Store the CDN URL and initial metadata (uploader, filename, size) in the database. Ensure file type validation (MP4, AVI, etc.) and size limits.
+
+# Test Strategy:
+Test uploading various video formats and sizes via the API. Verify that files are successfully stored on the CDN and the correct URL and metadata are saved in the database. Test with invalid file types and sizes to ensure proper error handling.
+
+# Subtasks:
+## 1. Create Video Upload Endpoint and Handle File Reception [pending]
+### Dependencies: None
+### Description: Set up the basic AdonisJS route and controller action to handle POST requests for video uploads. Configure the request body parser to accept multipart/form-data and receive the uploaded video file.
+### Details:
+Define a new route (e.g., POST /videos/upload). Create a corresponding controller method. Use `request.file()` or similar AdonisJS features to access the uploaded file object. Initially, just log file details or save to a temporary location to confirm reception.
+
+## 2. Implement File Validation (Type and Size) [pending]
+### Dependencies: 6.1
+### Description: Add validation logic to check the uploaded file's mime type against a list of allowed video types (e.g., video/mp4, video/avi) and its size against a defined maximum limit. Return an error response if validation fails.
+### Details:
+Within the controller method created in subtask 1, before processing the file further, use AdonisJS validation features or manual checks on the file object's `mimeType` and `size` properties. Define allowed types and max size in configuration. Return a 400 Bad Request response with a clear error message on validation failure.
+
+## 3. Integrate with CDN Storage and Upload File [pending]
+### Dependencies: 6.2
+### Description: Configure the chosen CDN's storage service (e.g., Cloudflare R2, AWS S3) and implement the logic to upload the validated video file directly from the backend to the CDN storage bucket. Obtain the public URL of the uploaded file.
+### Details:
+Choose a CDN and set up a storage bucket. Install the relevant SDK (e.g., AWS SDK, Cloudflare R2 client). Configure credentials securely. Modify the controller logic to read the validated file stream/buffer and upload it to the CDN bucket. Ensure the upload is efficient (e.g., streaming). Capture the resulting public URL provided by the CDN.
+
+## 4. Store Video Metadata in Database [pending]
+### Dependencies: 6.3
+### Description: Define a database model/schema for storing video metadata. After a successful upload to the CDN, save a new record in the database including the CDN URL, uploader ID (if applicable), original filename, file size, and mime type.
+### Details:
+Create a database migration to add a `videos` table with columns like `id`, `uploader_id`, `original_filename`, `cdn_url`, `size`, `mime_type`, `created_at`, `updated_at`. Define an AdonisJS Lucid model for `Video`. In the controller, after getting the CDN URL (Subtask 3), create and save a new `Video` model instance with the collected metadata.
+
+## 5. Implement Comprehensive Error Handling and API Response [pending]
+### Dependencies: 6.2, 6.3, 6.4
+### Description: Add robust error handling for potential failures during CDN upload or database saving. Ensure the API returns appropriate HTTP status codes and informative JSON responses for success, validation errors, and internal server errors.
+### Details:
+Wrap the CDN upload and database save logic in try-catch blocks. Handle specific exceptions from the CDN SDK or database operations. Return a 500 Internal Server Error for unexpected backend issues. For successful uploads, return a 201 Created response including the video's metadata (e.g., database ID, CDN URL). Ensure validation errors (from Subtask 2) return 400.
+

@@ -1,0 +1,11 @@
+# Task ID: 1
+# Title: Project Setup and Environment Configuration
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Set up the core project structure for both the backend (AdonisJS) and frontend (React), configure TypeScript, and establish the development environment.
+# Details:
+Initialize AdonisJS project for the backend and a React project for the frontend, both using TypeScript. Configure linting, formatting, and basic build processes. Set up environment variables for database connection and external services.
+
+# Test Strategy:
+Verify that both backend and frontend projects compile without errors and basic development servers can be started.

@@ -1,0 +1,43 @@
+# Task ID: 7
+# Title: AI Service Integration for Transcription and Tagging
+# Status: pending
+# Dependencies: 2, 6
+# Priority: high
+# Description: Integrate with AI services (Google Cloud Speech-to-Text, AWS Transcribe) for automatic video transcription and implement logic to generate relevant tags based on the content and context. Process videos asynchronously after upload.
+# Details:
+Set up background jobs or queues (e.g., using AdonisJS Queues) to process videos after they are uploaded and stored on the CDN. Call the chosen AI transcription service API with the video URL. Process the transcription text to extract keywords or generate tags using NLP techniques or another AI service. Store the full transcription and generated tags in the database associated with the video.
+
+# Test Strategy:
+Upload videos with clear speech and relevant visual content. Verify that background jobs are triggered. Check the database to confirm that transcriptions and relevant tags are accurately generated and stored for processed videos.
+
+# Subtasks:
+## 1. Setup Background Job Infrastructure [pending]
+### Dependencies: None
+### Description: Configure and set up the background job processing system (e.g., AdonisJS Queues) and define a basic job structure for video processing.
+### Details:
+Install and configure the chosen queue package (e.g., @adonisjs/queue). Set up the necessary drivers (e.g., Redis, database). Create a base job class or structure for handling video processing tasks. Ensure the queue worker can be started and jobs can be dispatched and processed (even if the job body is initially empty).
+
+## 2. Implement Video Processing Job Trigger [pending]
+### Dependencies: 7.1
+### Description: Modify the video upload workflow to dispatch the video processing job to the queue after a video is successfully uploaded and its metadata is saved.
+### Details:
+Identify the point in the video upload controller or service where the video is confirmed as uploaded and its database record is created. Add logic at this point to dispatch the video processing job (created in Subtask 1), passing necessary information like the video ID or CDN URL.
+
+## 3. Integrate with Transcription Service API [pending]
+### Dependencies: 7.2
+### Description: Implement the core logic within the video processing job to fetch the video URL from the database/metadata and call the chosen AI transcription service (GCP Speech-to-Text or AWS Transcribe) API.
+### Details:
+Inside the job handler, retrieve the video record using the ID passed during dispatch. Get the CDN URL. Set up the necessary SDK/client for the chosen AI service. Implement the API call to initiate transcription, handling asynchronous responses or polling if required by the service. Log the API call status and initial response.
+
+## 4. Implement Transcription Processing and Tag Generation [pending]
+### Dependencies: 7.3
+### Description: Add logic within the video processing job to retrieve the completed transcription text from the AI service and process it to generate relevant tags.
+### Details:
+After the transcription is complete (either via polling or a callback mechanism), retrieve the full transcription text. Implement logic to analyze the text for keywords, phrases, or topics. This could involve simple keyword extraction, using an NLP library, or calling another AI service for topic modeling/tagging. Generate a list of potential tags.
+
+## 5. Store Transcription and Tags in Database [pending]
+### Dependencies: 7.4
+### Description: Finalize the video processing job by implementing the logic to save the full transcription text and the generated tags to the database, associated with the original video record.
+### Details:
+Inside the job handler, after obtaining the transcription text (Subtask 3) and generating tags (Subtask 4), use the ORM to update the video record. Store the full transcription text in a designated field (e.g., `transcription`). Store the tags, potentially in a separate tags table with a many-to-many relationship or as a serialized array/JSON field on the video record, depending on the schema design.
+
