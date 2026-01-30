@@ -1,5 +1,5 @@
 services:
-  # TimescaleDB with pgvectorscale support
+  # TimescaleDB with pgvector support
   postgres:
     image: timescale/timescaledb:latest-pg16
     container_name: memebank_postgres_dev
@@ -22,6 +22,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # MinIO Object Storage (S3 Compatible)
+  minio:
+    image: minio/minio
+    container_name: memebank_minio_dev
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    networks:
+      - memebank_dev_network
+
   # Database Admin Interface
   adminer:
     image: adminer:latest
@@ -36,6 +53,8 @@ services:
 
 volumes:
   postgres_dev_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:

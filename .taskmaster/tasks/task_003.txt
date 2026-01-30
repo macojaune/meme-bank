@@ -1,6 +1,6 @@
 # Task ID: 3
 # Title: Backend User Authentication and Management
-# Status: pending
+# Status: done
 # Dependencies: 2
 # Priority: high
 # Description: Implement user registration, login, session management, and password recovery functionalities using AdonisJS's authentication system. Define the User model.
@@ -11,31 +11,31 @@ Utilize AdonisJS Auth module. Implement endpoints for user registration (email/p
 Use API testing tools (e.g., Postman, Insomnia) or unit tests to verify successful user registration, login with correct/incorrect credentials, logout, and the password reset flow.
 
 # Subtasks:
-## 1. Define User Model and Database Migration [pending]
+## 1. Define User Model and Database Migration [done]
 ### Dependencies: None
 ### Description: Create the User model and the corresponding database migration to define the 'users' table schema. This includes fields like email, password, and timestamps.
 ### Details:
 Use AdonisJS `ace make:model User` to create the model and `ace make:migration create_users_table` to create the migration. Define the schema in the migration file, including columns for `email` (unique), `password`, `created_at`, and `updated_at`. Run the migration using `ace migration:run`.
 
-## 2. Implement User Registration Endpoint [pending]
+## 2. Implement User Registration Endpoint [done]
 ### Dependencies: 3.1
 ### Description: Create the backend endpoint and logic for user registration. This involves receiving user data (email, password), validating it, hashing the password, and saving the new user to the database.
 ### Details:
 Create a controller (e.g., `AuthController`) using `ace make:controller AuthController`. Define a route `POST /register` that points to a method in this controller. Implement the method to: validate incoming request data (email, password), hash the password using AdonisJS's hashing utility, create a new User instance using the User model, and save it to the database. Return a success response.
 
-## 3. Implement User Login and Session/Token Management [pending]
+## 3. Implement User Login and Session/Token Management [done]
 ### Dependencies: 3.1
 ### Description: Create the backend endpoint and logic for user login. This involves receiving credentials (email, password), verifying them against the database, and establishing a user session or issuing an authentication token using AdonisJS Auth.
 ### Details:
 Add a route `POST /login` pointing to the AuthController. Implement the method to: validate incoming credentials, use `auth.attempt(email, password)` or a similar method provided by AdonisJS Auth to verify credentials, and on success, return an authentication token (e.g., JWT or API token) or establish a session. Handle authentication failures by returning an error response.
 
-## 4. Implement User Logout Endpoint [pending]
+## 4. Implement User Logout Endpoint [done]
 ### Dependencies: 3.3
 ### Description: Create the backend endpoint and logic for user logout. This involves invalidating the current user's session or authentication token.
 ### Details:
 Add a route `POST /logout` pointing to the AuthController. This route should be protected by authentication middleware. Implement the method to use `auth.logout()` (for sessions) or `auth.revoke()` (for tokens) to invalidate the user's current authentication state. Return a success response.
 
-## 5. Implement Password Recovery Flow [pending]
+## 5. Implement Password Recovery Flow [done]
 ### Dependencies: 3.1
 ### Description: Implement the backend endpoints and logic for the password recovery process, including requesting a reset token and resetting the password using the token.
 ### Details:

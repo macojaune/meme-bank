@@ -3,41 +3,47 @@
 # Status: pending
 # Dependencies: 1, 3
 # Priority: high
-# Description: Set up the React frontend application structure, implement basic routing, and build user interface components for registration, login, and potentially a dashboard placeholder. Integrate with the backend authentication endpoints.
+# Description: Implement user interface components for registration, login, and a dashboard placeholder within the existing Inertia/React frontend application. Integrate with the backend authentication endpoints using Inertia's capabilities.
 # Details:
-Set up React Router for navigation. Create components for Login, Register, and a protected Dashboard/Home page. Implement state management (e.g., React Context, Redux, Zustand) to handle user authentication status. Make API calls to the backend authentication endpoints and handle responses.
+Work within the existing Inertia/React application located at `/Users/marvinl/Documents/DEV/meme-bank/adonis/inertia/`. Utilize `@inertiajs/react` for routing and shared data. Create components for Login, Register, and a protected Dashboard/Home page. Make API calls (likely via Inertia visits or standard AJAX like axios) to the backend authentication endpoints and handle responses, leveraging Inertia's data sharing for state.
 
 # Test Strategy:
-Manually test user registration, login, and logout flows through the frontend UI. Verify that protected routes are inaccessible without authentication and accessible after successful login.
+Manually test user registration, login, and logout flows through the frontend UI within the Inertia application. Verify that protected routes (handled by backend middleware and Inertia) are inaccessible without authentication and accessible after successful login.
 
 # Subtasks:
-## 1. Initialize React Project and Install Core Dependencies [pending]
+## 1. Verify and Utilize Existing Inertia/React Setup [pending]
 ### Dependencies: None
-### Description: Set up a new React application using Create React App, Vite, or a similar tool. Install essential frontend dependencies including `react-router-dom` for routing, `axios` for API calls, and a state management library (e.g., Zustand, React Context, Redux Toolkit). Organize the initial project structure.
+### Description: Confirm the existing Inertia/React application at `/Users/marvinl/Documents/DEV/meme-bank/adonis/inertia/` is correctly set up. Understand its structure and confirm necessary dependencies like `@inertiajs/react` and `axios` are available.
 ### Details:
-Use `create-react-app`, `vite`, or `next.js` (if preferred) to initialize the project. Install `react-router-dom`, `axios`, and your chosen state management library (`zustand`, `@reduxjs/toolkit` and `react-redux`, or plan for React Context). Create basic folders like `src/components`, `src/pages`, `src/utils`, `src/state`.
+Navigate to the project directory. Run `npm install` or `yarn install` if needed. Review the project structure (e.g., `resources/js/app.jsx`, `resources/js/Pages/`). Verify `@inertiajs/react` and `axios` are in `package.json`.
 
-## 2. Configure Basic Application Routing [pending]
+## 2. Configure Inertia Routing for Authentication Pages [pending]
 ### Dependencies: 4.1
-### Description: Set up the main application routing using `react-router-dom`. Define routes for the login page (`/login`), registration page (`/register`), and a placeholder dashboard/home page (`/dashboard` or `/`). Configure the main `App` component to use the router.
+### Description: Define the necessary routes in the backend (AdonisJS) that Inertia will use to render the Login (`/login`) and Registration (`/register`) pages. Ensure the Inertia setup correctly handles these routes.
 ### Details:
-Wrap the application root with `BrowserRouter` (or `HashRouter`). Use `Routes` and `Route` components to define paths. Create placeholder components for Login, Register, and Dashboard pages to test routing navigation.
+Modify backend routing files (e.g., `start/routes.ts`) to define GET routes for `/login` and `/register` that render Inertia pages (e.g., `Inertia.render('Auth/Login')`). Ensure the main Inertia setup in `app.jsx` is correct.
 
-## 3. Develop Login and Registration UI Components [pending]
+## 3. Develop Login and Registration Inertia Page Components [pending]
 ### Dependencies: 4.1
-### Description: Create the React components for the Login and Registration forms. These components should include input fields for necessary information (e.g., username/email, password) and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.
+### Description: Create the React components that will serve as the Login and Registration pages within the Inertia `Pages` directory. These components should include input fields for necessary information and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.
 ### Details:
-Create `LoginPage.js` and `RegisterPage.js` (or similar) in the `src/pages` directory. Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling (can be minimal).
+Create `resources/js/Pages/Auth/Login.jsx` and `resources/js/Pages/Auth/Register.jsx` (or similar). Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling.
 
-## 4. Implement Authentication State Management and Backend API Integration [pending]
+## 4. Implement Authentication Logic and Backend Integration via Inertia/AJAX [pending]
 ### Dependencies: 4.1, 4.3
-### Description: Set up the chosen state management solution to manage the user's authentication status (e.g., `isAuthenticated`, `user`, `token`). Implement functions to make API calls to the backend `/api/register` and `/api/login` endpoints using `axios`. Handle successful responses (storing tokens, updating auth state) and errors.
+### Description: Implement the logic within the Login and Registration page components to submit form data to the backend authentication endpoints (`/login`, `/register`). Use Inertia visits (`Inertia.post`) or standard AJAX (`axios`) as appropriate. Handle successful responses (e.g., redirects via Inertia, receiving user data as props) and errors (e.g., displaying validation errors passed as props).
 ### Details:
-Define your authentication state slice/context/store. Create asynchronous functions (e.g., `loginUser`, `registerUser`) that use `axios` to post data to the backend endpoints. On success, update the auth state and potentially store the token (e.g., in `localStorage`). On failure, handle errors (e.g., display a message). Connect these functions to the form components developed in Subtask 3.
+In `Login.jsx` and `Register.jsx`, add form submission handlers. Use `Inertia.post('/login', data)` and `Inertia.post('/register', data)` or `axios.post('/api/login', data)` and `axios.post('/api/register', data)`. Handle validation errors passed back from the backend via Inertia props (`props.errors`). On successful login/registration, Inertia will typically handle the redirect.
 
-## 5. Create Protected Dashboard Route and Placeholder [pending]
+## 5. Create Protected Dashboard Page and Configure Backend Middleware [pending]
 ### Dependencies: 4.2, 4.4
-### Description: Implement logic to protect the `/dashboard` route, ensuring only authenticated users can access it. Redirect unauthenticated users to the login page. Create a simple Dashboard placeholder component that displays a welcome message and potentially shows user information from the authentication state.
+### Description: Create the Dashboard page component. Implement backend middleware (in AdonisJS) to protect the `/dashboard` route, ensuring only authenticated users can access it. Configure the backend route to render the Dashboard Inertia page only if authenticated.
 ### Details:
-Create a `ProtectedRoute` component or use a similar pattern with `react-router-dom` that checks the authentication status from the state management. If not authenticated, use `Navigate` to redirect to `/login`. If authenticated, render the child route element (the Dashboard component). Create a basic `DashboardPage.js` component that accesses and displays user info from the auth state.
+Create `resources/js/Pages/Dashboard.jsx` (or similar). In AdonisJS, create or use an existing authentication middleware. Apply this middleware to the `/dashboard` route definition in `start/routes.ts`. The route should render `Inertia.render('Dashboard')` if authenticated.
+
+## 6. Implement Logout Functionality [pending]
+### Dependencies: 4.1, 4.5
+### Description: Add a logout button or link to the application (e.g., on the Dashboard or a layout). Implement the logic to send a request to the backend logout endpoint and handle the response, typically by redirecting the user to the login page.
+### Details:
+Add a button/link in a relevant component (e.g., `Dashboard.jsx` or a shared layout). Create a backend route for `/logout` that handles session/token invalidation. In the frontend, use `Inertia.post('/logout')` or `axios.post('/api/logout')` to trigger the logout. Inertia will handle the redirect after logout.
 

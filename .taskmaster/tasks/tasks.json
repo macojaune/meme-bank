@@ -78,7 +78,7 @@
       "dependencies": [
         1
       ],
-      "status": "pending",
+      "status": "done",
       "subtasks": [
         {
           "id": 1,
@@ -86,7 +86,7 @@
           "description": "Design and define the initial database schemas for the core entities: Users, Videos, and Categories. This involves identifying essential fields and their basic data types.",
           "dependencies": [],
           "details": "Using Lucid ORM schema definition syntax, create migration files (but don't run them yet) for `users`, `videos`, and `categories` tables. Define primary keys and basic columns like `email`, `password`, `name` for users; `title`, `description`, `upload_date` for videos; and `name` for categories. Establish initial foreign key relationships where obvious (e.g., `user_id` in `videos`).",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Review the migration files to ensure correct table and column definitions according to the initial design."
         },
         {
@@ -97,7 +97,7 @@
             1
           ],
           "details": "Create migration files for `video_metadata`, `tags`, and `video_tags` (pivot table). The `video_metadata` table should link to the `videos` table. The `video_tags` table should link `videos` and `tags`. Define appropriate fields, e.g., `key`, `value` or a JSONB column for metadata; `name` for tags; and foreign keys in the pivot table.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Review the new migration files for correct table structure and foreign key definitions linking to `videos` and `tags`."
         },
         {
@@ -108,7 +108,7 @@
             1
           ],
           "details": "Create migration files for `reports` and `payments` tables. Define fields relevant to reporting (e.g., `reported_by_user_id`, `reported_video_id`, `reason`, `status`) and payments (e.g., `user_id`, `amount`, `status`, `transaction_id`, `payment_date`). Establish foreign key relationships to `users` and potentially `videos` tables.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Review the migration files for `reports` and `payments` to ensure necessary fields and relationships are defined."
         },
         {
@@ -121,7 +121,7 @@
             3
           ],
           "details": "Modify the existing migration files. Ensure appropriate data types are used (e.g., `timestamp` with timezone, `boolean`, `jsonb` for flexible metadata). Add `references` clauses for all foreign keys. Add indexes on foreign key columns and frequently queried fields. Research and decide on the approach for video search (e.g., using PostgreSQL's `tsvector` for full-text search on titles/descriptions, or planning for a vector extension if needed later) and add relevant columns/indexes if implementing now.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Perform a final review of all migration files to verify data types, foreign key constraints, and indexing strategies. Ensure consistency across tables."
         },
         {
@@ -132,7 +132,7 @@
             4
           ],
           "details": "Configure the database connection details (host, port, database name, user, password) in the AdonisJS environment file (`.env`). Ensure the `config/database.ts` file is correctly set up for PostgreSQL and Lucid ORM. Run the migrations using the AdonisJS CLI command: `node ace migration:run`. Verify that all tables and constraints are created correctly in the target PostgreSQL database.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Connect to the PostgreSQL database using a client tool and inspect the schema to confirm all tables, columns, data types, indexes, and foreign key constraints match the design from the migration files. Run `node ace migration:status` to confirm all migrations have run successfully."
         }
       ]
@@ -147,7 +147,7 @@
       "dependencies": [
         2
       ],
-      "status": "pending",
+      "status": "done",
       "subtasks": [
         {
           "id": 1,
@@ -155,7 +155,7 @@
           "description": "Create the User model and the corresponding database migration to define the 'users' table schema. This includes fields like email, password, and timestamps.",
           "dependencies": [],
           "details": "Use AdonisJS `ace make:model User` to create the model and `ace make:migration create_users_table` to create the migration. Define the schema in the migration file, including columns for `email` (unique), `password`, `created_at`, and `updated_at`. Run the migration using `ace migration:run`.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Run the migration and verify the 'users' table is created in the database with the correct columns and constraints."
         },
         {
@@ -166,7 +166,7 @@
             1
           ],
           "details": "Create a controller (e.g., `AuthController`) using `ace make:controller AuthController`. Define a route `POST /register` that points to a method in this controller. Implement the method to: validate incoming request data (email, password), hash the password using AdonisJS's hashing utility, create a new User instance using the User model, and save it to the database. Return a success response.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Send POST requests to `/register` with valid and invalid data. Verify that valid requests create a new user record in the database with a hashed password, and invalid requests return appropriate validation errors."
         },
         {
@@ -177,7 +177,7 @@
             1
           ],
           "details": "Add a route `POST /login` pointing to the AuthController. Implement the method to: validate incoming credentials, use `auth.attempt(email, password)` or a similar method provided by AdonisJS Auth to verify credentials, and on success, return an authentication token (e.g., JWT or API token) or establish a session. Handle authentication failures by returning an error response.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Send POST requests to `/login` with correct and incorrect credentials. Verify that correct credentials return an auth token/session identifier, and incorrect credentials return an authentication failure error."
         },
         {
@@ -188,7 +188,7 @@
             3
           ],
           "details": "Add a route `POST /logout` pointing to the AuthController. This route should be protected by authentication middleware. Implement the method to use `auth.logout()` (for sessions) or `auth.revoke()` (for tokens) to invalidate the user's current authentication state. Return a success response.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "Log in a user to obtain a token/session. Send a POST request to `/logout` with the valid token/session. Attempt to access a protected route using the same token/session and verify that access is denied."
         },
         {
@@ -199,7 +199,7 @@
             1
           ],
           "details": "Add routes `POST /forgot-password` and `POST /reset-password`. Implement the `/forgot-password` method: validate email, find the user, generate a secure unique token, save the token and its expiry time to the user record (may require adding columns to the users table in migration 1), and simulate or actually send an email containing a link with the token. Implement the `/reset-password` method: validate input (token, new password, password confirmation), find the user by the token, check token validity and expiry, hash the new password, update the user's password, and invalidate the token.",
-          "status": "pending",
+          "status": "done",
           "testStrategy": "For `/forgot-password`: Send a POST request with a registered email. Verify that a token is generated and stored for the user, and that an email simulation/log shows the reset link. For `/reset-password`: Use a generated token, send a POST request with the token and new password. Verify the user's password is updated in the database and the token is invalidated. Test with invalid/expired tokens."
         }
       ]
@@ -207,70 +207,82 @@
     {
       "id": 4,
       "title": "Frontend Setup and Authentication UI",
-      "description": "Set up the React frontend application structure, implement basic routing, and build user interface components for registration, login, and potentially a dashboard placeholder. Integrate with the backend authentication endpoints.",
-      "details": "Set up React Router for navigation. Create components for Login, Register, and a protected Dashboard/Home page. Implement state management (e.g., React Context, Redux, Zustand) to handle user authentication status. Make API calls to the backend authentication endpoints and handle responses.",
-      "testStrategy": "Manually test user registration, login, and logout flows through the frontend UI. Verify that protected routes are inaccessible without authentication and accessible after successful login.",
-      "priority": "high",
+      "description": "Implement user interface components for registration, login, and a dashboard placeholder within the existing Inertia/React frontend application. Integrate with the backend authentication endpoints using Inertia's capabilities.",
+      "status": "pending",
       "dependencies": [
         1,
         3
       ],
-      "status": "pending",
+      "priority": "high",
+      "details": "Work within the existing Inertia/React application located at `/Users/marvinl/Documents/DEV/meme-bank/adonis/inertia/`. Utilize `@inertiajs/react` for routing and shared data. Create components for Login, Register, and a protected Dashboard/Home page. Make API calls (likely via Inertia visits or standard AJAX like axios) to the backend authentication endpoints and handle responses, leveraging Inertia's data sharing for state.",
+      "testStrategy": "Manually test user registration, login, and logout flows through the frontend UI within the Inertia application. Verify that protected routes (handled by backend middleware and Inertia) are inaccessible without authentication and accessible after successful login.",
       "subtasks": [
         {
           "id": 1,
-          "title": "Initialize React Project and Install Core Dependencies",
-          "description": "Set up a new React application using Create React App, Vite, or a similar tool. Install essential frontend dependencies including `react-router-dom` for routing, `axios` for API calls, and a state management library (e.g., Zustand, React Context, Redux Toolkit). Organize the initial project structure.",
+          "title": "Verify and Utilize Existing Inertia/React Setup",
+          "description": "Confirm the existing Inertia/React application at `/Users/marvinl/Documents/DEV/meme-bank/adonis/inertia/` is correctly set up. Understand its structure and confirm necessary dependencies like `@inertiajs/react` and `axios` are available.",
           "dependencies": [],
-          "details": "Use `create-react-app`, `vite`, or `next.js` (if preferred) to initialize the project. Install `react-router-dom`, `axios`, and your chosen state management library (`zustand`, `@reduxjs/toolkit` and `react-redux`, or plan for React Context). Create basic folders like `src/components`, `src/pages`, `src/utils`, `src/state`.",
-          "status": "pending",
-          "testStrategy": "Verify project initialization by running the development server. Check `package.json` to confirm dependencies are installed correctly."
+          "details": "Navigate to the project directory. Run `npm install` or `yarn install` if needed. Review the project structure (e.g., `resources/js/app.jsx`, `resources/js/Pages/`). Verify `@inertiajs/react` and `axios` are in `package.json`.",
+          "status": "done",
+          "testStrategy": "Run the development server (`npm run dev` or `yarn dev`). Verify the application loads. Check `package.json`."
         },
         {
           "id": 2,
-          "title": "Configure Basic Application Routing",
-          "description": "Set up the main application routing using `react-router-dom`. Define routes for the login page (`/login`), registration page (`/register`), and a placeholder dashboard/home page (`/dashboard` or `/`). Configure the main `App` component to use the router.",
+          "title": "Configure Inertia Routing for Authentication Pages",
+          "description": "Define the necessary routes in the backend (AdonisJS) that Inertia will use to render the Login (`/login`) and Registration (`/register`) pages. Ensure the Inertia setup correctly handles these routes.",
           "dependencies": [
             1
           ],
-          "details": "Wrap the application root with `BrowserRouter` (or `HashRouter`). Use `Routes` and `Route` components to define paths. Create placeholder components for Login, Register, and Dashboard pages to test routing navigation.",
+          "details": "Modify backend routing files (e.g., `start/routes.ts`) to define GET routes for `/login` and `/register` that render Inertia pages (e.g., `Inertia.render('Auth/Login')`). Ensure the main Inertia setup in `app.jsx` is correct.",
           "status": "pending",
-          "testStrategy": "Navigate manually to `/login`, `/register`, and `/dashboard` in the browser to ensure the correct placeholder component is rendered for each route."
+          "testStrategy": "Navigate manually to `/login` and `/register` in the browser to ensure the correct (placeholder) Inertia pages are rendered."
         },
         {
           "id": 3,
-          "title": "Develop Login and Registration UI Components",
-          "description": "Create the React components for the Login and Registration forms. These components should include input fields for necessary information (e.g., username/email, password) and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.",
+          "title": "Develop Login and Registration Inertia Page Components",
+          "description": "Create the React components that will serve as the Login and Registration pages within the Inertia `Pages` directory. These components should include input fields for necessary information and a submit button. Focus on the UI structure and basic form handling (like capturing input values) without integrating backend logic yet.",
           "dependencies": [
             1
           ],
-          "details": "Create `LoginPage.js` and `RegisterPage.js` (or similar) in the `src/pages` directory. Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling (can be minimal).",
+          "details": "Create `resources/js/Pages/Auth/Login.jsx` and `resources/js/Pages/Auth/Register.jsx` (or similar). Inside these, create form elements using HTML/JSX. Use React state (`useState`) to manage input field values. Add basic styling.",
           "status": "pending",
-          "testStrategy": "Render the components in isolation or via the routes configured in Subtask 2. Verify that input fields are present and that typing updates the component's internal state (e.g., using React DevTools)."
+          "testStrategy": "Render the components via the Inertia routes configured in Subtask 2. Verify that input fields are present and that typing updates the component's internal state (e.g., using React DevTools)."
         },
         {
           "id": 4,
-          "title": "Implement Authentication State Management and Backend API Integration",
-          "description": "Set up the chosen state management solution to manage the user's authentication status (e.g., `isAuthenticated`, `user`, `token`). Implement functions to make API calls to the backend `/api/register` and `/api/login` endpoints using `axios`. Handle successful responses (storing tokens, updating auth state) and errors.",
+          "title": "Implement Authentication Logic and Backend Integration via Inertia/AJAX",
+          "description": "Implement the logic within the Login and Registration page components to submit form data to the backend authentication endpoints (`/login`, `/register`). Use Inertia visits (`Inertia.post`) or standard AJAX (`axios`) as appropriate. Handle successful responses (e.g., redirects via Inertia, receiving user data as props) and errors (e.g., displaying validation errors passed as props).",
           "dependencies": [
             1,
             3
           ],
-          "details": "Define your authentication state slice/context/store. Create asynchronous functions (e.g., `loginUser`, `registerUser`) that use `axios` to post data to the backend endpoints. On success, update the auth state and potentially store the token (e.g., in `localStorage`). On failure, handle errors (e.g., display a message). Connect these functions to the form components developed in Subtask 3.",
+          "details": "In `Login.jsx` and `Register.jsx`, add form submission handlers. Use `Inertia.post('/login', data)` and `Inertia.post('/register', data)` or `axios.post('/api/login', data)` and `axios.post('/api/register', data)`. Handle validation errors passed back from the backend via Inertia props (`props.errors`). On successful login/registration, Inertia will typically handle the redirect.",
           "status": "pending",
-          "testStrategy": "Use mock API calls initially or connect to the actual backend if available. Test successful login/registration and error handling by submitting forms with valid/invalid data. Verify that the authentication state updates correctly."
+          "testStrategy": "Connect to the actual backend authentication endpoints. Test successful login/registration with valid data. Test error handling with invalid data (e.g., wrong password, validation errors). Verify that Inertia handles redirects correctly on success and displays errors on failure."
         },
         {
           "id": 5,
-          "title": "Create Protected Dashboard Route and Placeholder",
-          "description": "Implement logic to protect the `/dashboard` route, ensuring only authenticated users can access it. Redirect unauthenticated users to the login page. Create a simple Dashboard placeholder component that displays a welcome message and potentially shows user information from the authentication state.",
+          "title": "Create Protected Dashboard Page and Configure Backend Middleware",
+          "description": "Create the Dashboard page component. Implement backend middleware (in AdonisJS) to protect the `/dashboard` route, ensuring only authenticated users can access it. Configure the backend route to render the Dashboard Inertia page only if authenticated.",
           "dependencies": [
             2,
             4
           ],
-          "details": "Create a `ProtectedRoute` component or use a similar pattern with `react-router-dom` that checks the authentication status from the state management. If not authenticated, use `Navigate` to redirect to `/login`. If authenticated, render the child route element (the Dashboard component). Create a basic `DashboardPage.js` component that accesses and displays user info from the auth state.",
+          "details": "Create `resources/js/Pages/Dashboard.jsx` (or similar). In AdonisJS, create or use an existing authentication middleware. Apply this middleware to the `/dashboard` route definition in `start/routes.ts`. The route should render `Inertia.render('Dashboard')` if authenticated.",
           "status": "pending",
-          "testStrategy": "Attempt to access `/dashboard` directly when not logged in; verify redirection to `/login`. Log in successfully and then navigate to `/dashboard`; verify access and that user info is displayed. Log out (if logout functionality is added, otherwise clear local storage/state manually) and try accessing `/dashboard` again."
+          "testStrategy": "Attempt to access `/dashboard` directly when not logged in; verify the backend middleware redirects you (typically to `/login` via Inertia). Log in successfully and then navigate to `/dashboard`; verify access and that the Dashboard component renders. Log out (implement logout in Subtask 6 or manually clear session/cookie) and try accessing `/dashboard` again."
+        },
+        {
+          "id": 6,
+          "title": "Implement Logout Functionality",
+          "description": "Add a logout button or link to the application (e.g., on the Dashboard or a layout). Implement the logic to send a request to the backend logout endpoint and handle the response, typically by redirecting the user to the login page.",
+          "dependencies": [
+            1,
+            5
+          ],
+          "details": "Add a button/link in a relevant component (e.g., `Dashboard.jsx` or a shared layout). Create a backend route for `/logout` that handles session/token invalidation. In the frontend, use `Inertia.post('/logout')` or `axios.post('/api/logout')` to trigger the logout. Inertia will handle the redirect after logout.",
+          "status": "pending",
+          "testStrategy": "Log in successfully. Click the logout button/link. Verify that the user is redirected to the login page and can no longer access protected routes."
         }
       ]
     },

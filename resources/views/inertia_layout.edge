@@ -13,9 +13,8 @@
     />
   </head>
   <body>
-    <div id="app">
-      @inertia()
-    </div>
-    <script src="/@vite/client" />
+    @inertia()
+    @viteReactRefresh()
+    @vite(['inertia/app/app.tsx'])
   </body>
 </html>

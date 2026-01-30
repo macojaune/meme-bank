@@ -1,6 +1,6 @@
 # Task ID: 2
 # Title: Database Schema Design and Setup
-# Status: pending
+# Status: done
 # Dependencies: 1
 # Priority: high
 # Description: Design and implement the database schema using Lucid ORM, we'll use postgreSQL to store user information, video metadata (including transcription and tags), categories, reports, and payment status.
@@ -11,31 +11,31 @@ Create tables for users, videos, video_metadata, categories, tags, video_tags (m
 Run database migrations to ensure tables are created correctly. Verify table structures and relationships using a database client. Write basic queries to confirm data insertion and retrieval works.
 
 # Subtasks:
-## 1. Define Core Schemas (Users, Videos, Categories) [pending]
+## 1. Define Core Schemas (Users, Videos, Categories) [done]
 ### Dependencies: None
 ### Description: Design and define the initial database schemas for the core entities: Users, Videos, and Categories. This involves identifying essential fields and their basic data types.
 ### Details:
 Using Lucid ORM schema definition syntax, create migration files (but don't run them yet) for `users`, `videos`, and `categories` tables. Define primary keys and basic columns like `email`, `password`, `name` for users; `title`, `description`, `upload_date` for videos; and `name` for categories. Establish initial foreign key relationships where obvious (e.g., `user_id` in `videos`).
 
-## 2. Define Metadata and Tag Schemas [pending]
+## 2. Define Metadata and Tag Schemas [done]
 ### Dependencies: 2.1
 ### Description: Extend the schema design to include tables for video metadata, tags, and the many-to-many relationship between videos and tags.
 ### Details:
 Create migration files for `video_metadata`, `tags`, and `video_tags` (pivot table). The `video_metadata` table should link to the `videos` table. The `video_tags` table should link `videos` and `tags`. Define appropriate fields, e.g., `key`, `value` or a JSONB column for metadata; `name` for tags; and foreign keys in the pivot table.
 
-## 3. Define Auxiliary Schemas (Reports, Payments) [pending]
+## 3. Define Auxiliary Schemas (Reports, Payments) [done]
 ### Dependencies: 2.1
 ### Description: Complete the schema design by adding tables for reporting and payment status.
 ### Details:
 Create migration files for `reports` and `payments` tables. Define fields relevant to reporting (e.g., `reported_by_user_id`, `reported_video_id`, `reason`, `status`) and payments (e.g., `user_id`, `amount`, `status`, `transaction_id`, `payment_date`). Establish foreign key relationships to `users` and potentially `videos` tables.
 
-## 4. Refine Data Types, Relationships, and Indexing [pending]
+## 4. Refine Data Types, Relationships, and Indexing [done]
 ### Dependencies: 2.1, 2.2, 2.3
 ### Description: Review all defined schemas, refine data types for efficiency and functionality (e.g., using JSONB, timestamps), explicitly define all relationships with foreign key constraints, add necessary indexes, and consider implementation details for search capabilities.
 ### Details:
 Modify the existing migration files. Ensure appropriate data types are used (e.g., `timestamp` with timezone, `boolean`, `jsonb` for flexible metadata). Add `references` clauses for all foreign keys. Add indexes on foreign key columns and frequently queried fields. Research and decide on the approach for video search (e.g., using PostgreSQL's `tsvector` for full-text search on titles/descriptions, or planning for a vector extension if needed later) and add relevant columns/indexes if implementing now.
 
-## 5. Implement Lucid Migrations and Database Setup [pending]
+## 5. Implement Lucid Migrations and Database Setup [done]
 ### Dependencies: 2.4
 ### Description: Configure the database connection in the application and run the Lucid migrations to create the tables in the PostgreSQL database.
 ### Details:
