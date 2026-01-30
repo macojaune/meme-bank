@@ -21,6 +21,9 @@ node_modules/
 *.sln
 *.sw?
 
+# AI assistant files
+.letta
+
 # OS specific
 .DS_Store
 
