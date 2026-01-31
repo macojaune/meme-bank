@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Video from '#models/video'
+import Like from '#models/like'
 import drive from '@adonisjs/drive/services/main'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
@@ -150,9 +151,7 @@ export default class VideoUploadController {
 
       // Check if video is published
       if (!video.isPublished) {
-        return response.notFound({
-          error: 'Video not found',
-        })
+        return response.redirect('/gallery')
       }
 
       // Increment view count
@@ -252,6 +251,49 @@ export default class VideoUploadController {
       return response.notFound({
         error: 'Video not found',
       })
+    }
+  }
+
+  /**
+   * Toggle like on/off for a video
+   */
+  async toggleLike({ params, response, auth }: HttpContext) {
+    try {
+      const video = await Video.findOrFail(params.id)
+
+      // Check if video is published
+      if (!video.isPublished) {
+        return response.notFound({
+          error: 'Video not found',
+        })
+      }
+
+      // Check if user already liked the video
+      const existingLike = await Like.query()
+        .where('user_id', auth.user!.id)
+        .where('video_id', video.id)
+        .first()
+
+      if (existingLike) {
+        // Unlike: remove the like and decrement likeCount
+        await existingLike.delete()
+        video.likeCount--
+        await video.save()
+
+        return response.redirect('/gallery')
+      } else {
+        // Like: create new like and increment likeCount
+        await Like.create({
+          userId: auth.user!.id,
+          videoId: video.id,
+        })
+        video.likeCount++
+        await video.save()
+
+        return response.redirect('/gallery')
+      }
+    } catch (error) {
+      return response.redirect('/gallery')
     }
   }
 }

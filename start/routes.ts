@@ -122,6 +122,7 @@ router
     // Gallery - with video data (published + user's pending videos)
     router.get('/gallery', async ({ inertia, auth }) => {
       const { default: Video } = await import('#models/video')
+      const { default: Like } = await import('#models/like')
 
       // Get published videos OR user's own videos (even if pending)
       const videos = await Video.query()
@@ -131,9 +132,18 @@ router
         .orderBy('created_at', 'desc')
         .paginate(1, 20)
 
+      // Get user's likes for these videos
+      const videoIds = videos.all().map((v) => v.id)
+      const userLikes = await Like.query()
+        .where('user_id', auth.user!.id)
+        .whereIn('video_id', videoIds)
+
+      const likedVideoIds = new Set(userLikes.map((l) => l.videoId))
+
       return inertia.render('gallery', {
         videos,
         userId: auth.user!.id,
+        likedVideoIds: Array.from(likedVideoIds),
       })
     })
 
@@ -141,15 +151,17 @@ router
     router.on('/upload').renderInertia('upload')
 
     // Video streaming route (signed URL)
-    router.get('/videos/stream/:id', async ({ params, response }) => {
+    router.get('/videos/stream/:id', async ({ params, response, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: drive } = await import('@adonisjs/drive/services/main')
 
       const video = await Video.findOrFail(params.id)
 
-      // Increment view count when serving video
-      video.viewCount++
-      await video.save()
+      // Increment view count when serving video (skip for owner)
+      if (video.userId !== auth.user!.id) {
+        video.viewCount++
+        await video.save()
+      }
 
       const signedUrl = await drive.use('spaces').getSignedUrl(video.filePath, {
         expiresIn: '1 hour',
@@ -165,5 +177,6 @@ router
     router.post('/videos/:id/publish', '#controllers/video_upload_controller.publish')
     router.get('/videos/:id/url', '#controllers/video_upload_controller.getSignedUrl')
     router.delete('/videos/:id', '#controllers/video_upload_controller.delete')
+    router.post('/videos/:id/like', '#controllers/video_upload_controller.toggleLike')
   })
   .use(middleware.auth())

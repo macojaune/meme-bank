@@ -1,0 +1,113 @@
+{
+  "inertia/app/app.tsx": {
+    "file": "app-g95gU1l2.js",
+    "name": "app",
+    "src": "inertia/app/app.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "inertia/pages/auth/forgot-password.tsx",
+      "inertia/pages/auth/login.tsx",
+      "inertia/pages/auth/register.tsx",
+      "inertia/pages/auth/reset-password.tsx",
+      "inertia/pages/dashboard.tsx",
+      "inertia/pages/errors/not_found.tsx",
+      "inertia/pages/errors/server_error.tsx",
+      "inertia/pages/gallery.tsx",
+      "inertia/pages/home.tsx",
+      "inertia/pages/upload.tsx"
+    ],
+    "css": [
+      "app-BioRRQst.css"
+    ]
+  },
+  "inertia/pages/auth/forgot-password.tsx": {
+    "file": "forgot-password-D81-Iga9.js",
+    "name": "forgot-password",
+    "src": "inertia/pages/auth/forgot-password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/auth/login.tsx": {
+    "file": "login-6sh9YT-4.js",
+    "name": "login",
+    "src": "inertia/pages/auth/login.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/auth/register.tsx": {
+    "file": "register-DEDhnKjB.js",
+    "name": "register",
+    "src": "inertia/pages/auth/register.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/auth/reset-password.tsx": {
+    "file": "reset-password-BtXR1zcp.js",
+    "name": "reset-password",
+    "src": "inertia/pages/auth/reset-password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/dashboard.tsx": {
+    "file": "dashboard-CQ0vaOD6.js",
+    "name": "dashboard",
+    "src": "inertia/pages/dashboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/errors/not_found.tsx": {
+    "file": "not_found-IszqWGwv.js",
+    "name": "not_found",
+    "src": "inertia/pages/errors/not_found.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/errors/server_error.tsx": {
+    "file": "server_error-DiJSeatW.js",
+    "name": "server_error",
+    "src": "inertia/pages/errors/server_error.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/gallery.tsx": {
+    "file": "gallery-DJT2hRPu.js",
+    "name": "gallery",
+    "src": "inertia/pages/gallery.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/home.tsx": {
+    "file": "home-M2h5p7P2.js",
+    "name": "home",
+    "src": "inertia/pages/home.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  },
+  "inertia/pages/upload.tsx": {
+    "file": "upload-DXvwvMOI.js",
+    "name": "upload",
+    "src": "inertia/pages/upload.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "inertia/app/app.tsx"
+    ]
+  }
+}

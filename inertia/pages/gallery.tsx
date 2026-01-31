@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react'
+import { Head, Link, router, useForm } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const UPLOAD_REGIONS = [
@@ -38,6 +38,7 @@ const REGIONS: Record<string, { name: string }> = {
 interface GalleryProps {
   videos: VideosResponse | null
   userId: number
+  likedVideoIds: string[]
 }
 
 // Helper to get video stream URL
@@ -70,7 +71,8 @@ const handleDeleteVideo = async (videoId: number) => {
   }
 }
 
-export default function Gallery({ videos, userId }: GalleryProps) {
+export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps) {
+  const [userLikes, setUserLikes] = useState<Set<string>>(new Set(likedVideoIds))
   const [videoList, setVideoList] = useState<Video[]>(videos?.data || [])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(
@@ -98,7 +100,7 @@ export default function Gallery({ videos, userId }: GalleryProps) {
   const handleVideoClick = async (video: Video) => {
     // Increment view count via stream endpoint (which tracks views)
     fetch(`/videos/stream/${video.id}`).catch(() => {})
-    
+
     // Optimistically update view count locally
     setVideoList((prev) =>
       prev.map((v) => (v.id === video.id ? { ...v, viewCount: (v.viewCount || 0) + 1 } : v))
@@ -108,6 +110,45 @@ export default function Gallery({ videos, userId }: GalleryProps) {
     const updatedVideo = { ...video, viewCount: (video.viewCount || 0) + 1 }
     setSelectedVideo(updatedVideo)
   }
+
+  // Toggle like on video
+  const handleLike = useCallback(
+    async (videoId: number, e: React.MouseEvent) => {
+      e.stopPropagation()
+
+      const videoIdStr = String(videoId)
+      const isLiked = userLikes.has(videoIdStr)
+
+      setUserLikes((prev: Set<string>) => {
+        const newSet = new Set(prev)
+        if (isLiked) {
+          newSet.delete(videoIdStr)
+        } else {
+          newSet.add(videoIdStr)
+        }
+        return newSet
+      })
+
+      setVideoList((prev: Video[]) =>
+        prev.map((v: Video) => {
+          if (v.id === videoId) {
+            return { ...v, likeCount: isLiked ? v.likeCount - 1 : v.likeCount + 1 }
+          }
+          return v
+        })
+      )
+
+      router.post(
+        `/videos/${videoId}/like`,
+        {},
+        {
+          preserveState: false,
+          onError: (errors) => console.error('Like error:', errors),
+        }
+      )
+    },
+    [userLikes]
+  )
 
   // Load more videos
   const loadMoreVideos = useCallback(async () => {
@@ -337,7 +378,18 @@ export default function Gallery({ videos, userId }: GalleryProps) {
                       </div>
                       <div className="flex items-center gap-4 text-sm font-bold text-gray-600">
                         <span>{video.viewCount || 0} vues</span>
-                        <span>{video.likeCount || 0} likes</span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleLike(video.id, e)}
+                          className={`flex items-center gap-1 px-2 py-1 border-2 border-black ${
+                            userLikes.has(String(video.id))
+                              ? 'bg-red-500 text-white'
+                              : 'bg-white text-black'
+                          }`}
+                        >
+                          <span>{userLikes.has(String(video.id)) ? '❤️' : '🤍'}</span>
+                          <span>{video.likeCount || 0}</span>
+                        </button>
                       </div>
                     </div>
                   </button>
