@@ -8,7 +8,7 @@ const UPLOAD_REGIONS = [
 ]
 
 interface Video {
-  id: number
+  id: string
   title: string
   description: string
   filePath: string
@@ -42,12 +42,12 @@ interface GalleryProps {
 }
 
 // Helper to get video stream URL
-const getVideoUrl = (videoId: number) => {
+const getVideoUrl = (videoId: string) => {
   return `/videos/stream/${videoId}`
 }
 
 // Delete video handler
-const handleDeleteVideo = async (videoId: number) => {
+const handleDeleteVideo = async (videoId: string) => {
   if (!confirm('Supprimer cette video ? Cette action est irreversible.')) {
     return
   }
@@ -100,6 +100,8 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
   const handleVideoClick = async (video: Video) => {
     // Increment view count via stream endpoint (which tracks views)
     fetch(`/videos/stream/${video.id}`).catch(() => {})
+    // Increment view count via stream endpoint (which tracks views)
+    fetch(`/videos/stream/${video.id}`).catch(() => {})
 
     // Optimistically update view count locally
     setVideoList((prev) =>
@@ -113,7 +115,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
   // Toggle like on video
   const handleLike = useCallback(
-    async (videoId: number, e: React.MouseEvent) => {
+    async (videoId: string, e: React.MouseEvent) => {
       e.stopPropagation()
 
       const videoIdStr = String(videoId)

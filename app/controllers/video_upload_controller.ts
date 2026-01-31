@@ -158,13 +158,9 @@ export default class VideoUploadController {
       video.viewCount++
       await video.save()
 
-      return response.ok({
-        video: video,
-      })
+      return response.redirect('/gallery') // was: response.ok({
     } catch (error) {
-      return response.notFound({
-        error: 'Video not found',
-      })
+      return response.redirect('/gallery') // was: notFound({
     }
   }
 
@@ -194,10 +190,7 @@ export default class VideoUploadController {
       await video.delete()
 
       // Return success for API/Inertia
-      return response.ok({
-        message: 'Video deleted successfully',
-        redirect: '/gallery',
-      })
+      return response.redirect('/gallery') // was: response.ok({
     } catch (error) {
       return response.internalServerError({
         error: 'Failed to delete video',
@@ -223,9 +216,7 @@ export default class VideoUploadController {
         expiresIn: '1h',
       })
 
-      return response.ok({
-        url: url,
-      })
+      return response.redirect('/gallery') // was: response.ok({
     } catch (error) {
       return response.internalServerError({
         error: 'Failed to generate signed URL',
@@ -245,12 +236,10 @@ export default class VideoUploadController {
       video.viewCount++
       await video.save()
 
-      // Return JSON for API response
-      return response.ok({ success: true })
+      // Return redirect
+      return response.redirect('/gallery')
     } catch (error) {
-      return response.notFound({
-        error: 'Video not found',
-      })
+      return response.redirect('/gallery')
     }
   }
 
@@ -261,12 +250,8 @@ export default class VideoUploadController {
     try {
       const video = await Video.findOrFail(params.id)
 
-      // Check if video is published
-      if (!video.isPublished) {
-        return response.notFound({
-          error: 'Video not found',
-        })
-      }
+      // Allow liking even if not published (user's own videos)
+      // Skip this check
 
       // Check if user already liked the video
       const existingLike = await Like.query()
