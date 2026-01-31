@@ -1,19 +1,41 @@
-import { Head, Link, router } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import { useState, useEffect, useRef } from 'react'
 
-const REGIONS = {
-  guadeloupe: { name: 'Guadeloupe', flag: '🇬🇵' },
-  martinique: { name: 'Martinique', flag: '🇲🇶' },
-  guyane: { name: 'Guyane', flag: '🇬🇫' },
+interface Video {
+  id: number
+  title: string
+  description: string
+  filePath: string
+  thumbnailPath: string | null
+  region: string
+  createdAt: string
+  viewCount: number
+  likeCount: number
 }
 
-export default function Gallery({ videos }) {
-  const [videoList, setVideoList] = useState(videos?.data || [])
+interface VideosResponse {
+  data: Video[]
+  meta: {
+    currentPage: number
+    lastPage: number
+  }
+}
+
+const REGIONS: Record<string, { name: string }> = {
+  guadeloupe: { name: 'Guadeloupe' },
+  martinique: { name: 'Martinique' },
+  guyane: { name: 'Guyane' },
+}
+
+export default function Gallery({ videos }: { videos: VideosResponse | null }) {
+  const [videoList, setVideoList] = useState<Video[]>(videos?.data || [])
   const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(videos?.meta?.currentPage < videos?.meta?.lastPage)
+  const [hasMore, setHasMore] = useState(
+    videos?.meta && videos.meta.currentPage < videos.meta.lastPage
+  )
   const [loading, setLoading] = useState(false)
-  const [selectedVideo, setSelectedVideo] = useState(null)
-  const observerRef = useRef(null)
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
+  const observerRef = useRef<HTMLDivElement>(null)
 
   // Load more videos
   const loadMoreVideos = async () => {
@@ -57,7 +79,7 @@ export default function Gallery({ videos }) {
     return () => observer.disconnect()
   }, [hasMore, loading, page])
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('fr-FR', {
       day: 'numeric',
@@ -66,9 +88,9 @@ export default function Gallery({ videos }) {
     })
   }
 
-  const getRegionDisplay = (regionId) => {
+  const getRegionDisplay = (regionId: string) => {
     const region = REGIONS[regionId]
-    return region ? `${region.flag} ${region.name}` : '🌎 Autre'
+    return region ? region.name : 'Autre'
   }
 
   return (
@@ -76,9 +98,9 @@ export default function Gallery({ videos }) {
       <Head title="Gallery" />
       <div className="min-h-screen bg-bg">
         {/* Navigation */}
-        <nav className="border-b-2 border-border bg-surface p-4 sticky top-0 z-10">
+        <nav className="border-b-2 border-black bg-white p-4 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <h1 className="text-xl font-bold text-text uppercase tracking-wider">🎬 Gallery</h1>
+            <h1 className="text-xl font-bold text-black uppercase tracking-wider">🎬 Gallery</h1>
             <div className="flex gap-2">
               <Link href="/dashboard" className="btn-neo-secondary text-sm">
                 Dashboard
@@ -95,8 +117,8 @@ export default function Gallery({ videos }) {
           {videoList.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🎭</div>
-              <h2 className="text-xl font-bold text-text mb-2">Aucune video</h2>
-              <p className="text-text-muted mb-4">Soyez le premier a upload un meme!</p>
+              <h2 className="text-xl font-bold text-black mb-2">Aucune video</h2>
+              <p className="text-gray-600 mb-4">Soyez le premier a upload un meme!</p>
               <Link href="/upload" className="btn-neo-primary">
                 Upload Video
               </Link>
@@ -111,7 +133,7 @@ export default function Gallery({ videos }) {
                     onClick={() => setSelectedVideo(video)}
                   >
                     {/* Thumbnail */}
-                    <div className="aspect-video bg-gray-100 border-b-2 border-border relative overflow-hidden">
+                    <div className="aspect-video bg-gray-100 border-b-2 border-black relative overflow-hidden">
                       {video.thumbnailPath ? (
                         <img
                           src={video.thumbnailPath}
@@ -119,13 +141,13 @@ export default function Gallery({ videos }) {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-surface">
+                        <div className="w-full h-full flex items-center justify-center bg-white">
                           <span className="text-4xl">🎬</span>
                         </div>
                       )}
                       {/* Play button overlay */}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
-                        <div className="w-16 h-16 bg-primary-500 flex items-center justify-center border-3 border-border shadow-neo">
+                        <div className="w-16 h-16 bg-primary-400 flex items-center justify-center border-3 border-black shadow-neo">
                           <span className="text-2xl text-white ml-1">▶</span>
                         </div>
                       </div>
@@ -133,12 +155,14 @@ export default function Gallery({ videos }) {
 
                     {/* Video Info */}
                     <div className="p-4">
-                      <h3 className="font-bold text-text truncate mb-2 uppercase">{video.title}</h3>
+                      <h3 className="font-bold text-black truncate mb-2 uppercase">
+                        {video.title}
+                      </h3>
                       <div className="flex items-center justify-between text-sm">
                         <span className="badge-neo">{getRegionDisplay(video.region)}</span>
-                        <span className="text-text-muted">{formatDate(video.createdAt)}</span>
+                        <span className="text-gray-600">{formatDate(video.createdAt)}</span>
                       </div>
-                      <div className="mt-2 flex items-center gap-4 text-sm text-text-muted">
+                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
                         <span>👁 {video.viewCount || 0}</span>
                         <span>❤️ {video.likeCount || 0}</span>
                       </div>
@@ -151,11 +175,11 @@ export default function Gallery({ videos }) {
               {loading && (
                 <div className="text-center py-8">
                   <div className="inline-flex items-center justify-center gap-1">
-                    <div className="w-3 h-3 bg-primary-500 border-2 border-border shadow-neo animate-pulse" />
-                    <div className="w-3 h-3 bg-primary-500 border-2 border-border shadow-neo animate-pulse delay-75" />
-                    <div className="w-3 h-3 bg-primary-500 border-2 border-border shadow-neo animate-pulse delay-150" />
+                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse" />
+                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse delay-75" />
+                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse delay-150" />
                   </div>
-                  <p className="text-text-muted mt-3 font-bold uppercase text-sm">Chargement...</p>
+                  <p className="text-gray-600 mt-3 font-bold uppercase text-sm">Chargement...</p>
                 </div>
               )}
 
@@ -172,10 +196,10 @@ export default function Gallery({ videos }) {
             onClick={() => setSelectedVideo(null)}
           >
             <div
-              className="card-neo max-w-4xl w-full max-h-[90vh] overflow-auto bg-surface"
+              className="card-neo max-w-4xl w-full max-h-[90vh] overflow-auto bg-white"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="aspect-video bg-black border-b-2 border-border">
+              <div className="aspect-video bg-black border-b-2 border-black">
                 <video
                   src={selectedVideo.filePath}
                   controls
@@ -186,13 +210,13 @@ export default function Gallery({ videos }) {
                 </video>
               </div>
               <div className="p-4">
-                <h2 className="text-xl font-bold text-text uppercase mb-2">
+                <h2 className="text-xl font-bold text-black uppercase mb-2">
                   {selectedVideo.title}
                 </h2>
-                <p className="text-text-muted mb-2">{selectedVideo.description}</p>
+                <p className="text-gray-600 mb-2">{selectedVideo.description}</p>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="badge-neo">{getRegionDisplay(selectedVideo.region)}</span>
-                  <span className="text-text-muted">{formatDate(selectedVideo.createdAt)}</span>
+                  <span className="text-gray-600">{formatDate(selectedVideo.createdAt)}</span>
                   <span>Views: {selectedVideo.viewCount || 0}</span>
                 </div>
               </div>
@@ -208,8 +232,8 @@ export default function Gallery({ videos }) {
         )}
 
         {/* Footer */}
-        <footer className="mt-16 p-4 border-t-3 border-border bg-surface text-center">
-          <p className="text-sm font-bold text-text-muted uppercase">🎭 Caribbean Meme Bank v1.0</p>
+        <footer className="mt-16 p-4 border-t-3 border-black bg-white text-center">
+          <p className="text-sm font-bold text-gray-600 uppercase">🎭 Caribbean Meme Bank v1.0</p>
         </footer>
       </div>
     </>

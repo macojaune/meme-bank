@@ -1,14 +1,26 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: #fafafa;
+  /* Background with subtle gradient */
+  --color-bg: #f8f9fa;
   --color-surface: #ffffff;
   --color-border: #000000;
   --color-text: #000000;
   --color-text-muted: #525252;
+
+  /* Vibrant Colors - Caribbean Vibes */
   --color-primary-400: #facc15;
+  --color-primary-300: #fde047;
   --color-secondary-400: #f472b6;
+  --color-secondary-300: #f9a8d4;
   --color-accent-400: #22d3ee;
+  --color-accent-300: #67e8f9;
+
+  /* Additional bright colors */
+  --color-lime: #84cc16;
+  --color-coral: #f87171;
+  --color-purple: #a78bfa;
+  --color-orange: #fb923c;
 }
 
 * {
@@ -86,7 +98,9 @@ body {
 
 .input-neo:focus {
   outline: none;
-  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.05), 0 0 0 2px var(--color-primary-400);
+  box-shadow:
+    inset 2px 2px 4px rgba(0, 0, 0, 0.05),
+    0 0 0 2px var(--color-primary-400);
 }
 
 /* Badges */
@@ -136,7 +150,49 @@ body {
   transition: width 0.3s ease;
 }
 
+/* Color utilities */
+.bg-lime {
+  background-color: #84cc16;
+}
+
+.bg-coral {
+  background-color: #f87171;
+}
+
+.bg-purple {
+  background-color: #a78bfa;
+}
+
+.bg-orange {
+  background-color: #fb923c;
+}
+
+.text-gray-600 {
+  color: #525252;
+}
+
+/* Gradient backgrounds */
+.bg-gradient-warm {
+  background: linear-gradient(135deg, #facc15 0%, #f472b6 50%, #22d3ee 100%);
+}
+
+.bg-gradient-cool {
+  background: linear-gradient(135deg, #22d3ee 0%, #a78bfa 50%, #f472b6 100%);
+}
+
 /* Additional utilities */
 .rounded-none {
   border-radius: 0;
+}
+
+.shadow-neo {
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.shadow-neo-sm {
+  box-shadow: 2px 2px 0px 0px #000000;
+}
+
+.shadow-neo-lg {
+  box-shadow: 6px 6px 0px 0px #000000;
 }
