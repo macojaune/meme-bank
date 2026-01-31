@@ -2,6 +2,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Video from '#models/video'
 import Like from '#models/like'
 import drive from '@adonisjs/drive/services/main'
+import QueueService from '#services/queue_service'
+import queueConfig from '#config/queue'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 
@@ -86,7 +88,7 @@ export default class VideoUploadController {
       const validatedRegion = region && allowedRegions.includes(region) ? region : null
 
       // Create video record in database
-      await Video.create({
+      const video = await Video.create({
         userId: auth.user!.id,
         title: request.input('title', file.clientName),
         description: request.input('description'),
@@ -100,6 +102,20 @@ export default class VideoUploadController {
         likeCount: 0,
         region: validatedRegion,
       })
+
+      // Queue transcription job after successful upload
+      try {
+        const queueService = new QueueService()
+        await queueService.addJob(queueConfig.queues.transcription.name, {
+          videoId: video.id,
+          filePath: filePath,
+          language: 'fr', // Default to French for Caribbean memes
+        })
+        console.log(`[Upload] Transcription job queued for video ${video.id}`)
+      } catch (queueError) {
+        // Don't fail the upload if queuing fails, just log it
+        console.error('[Upload] Failed to queue transcription job:', queueError)
+      }
 
       // Redirect back to gallery on success
       return response.redirect('/gallery')
