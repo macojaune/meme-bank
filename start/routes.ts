@@ -94,8 +94,69 @@ router
     // Logout
     router.post('/logout', '#controllers/auth_controller.logout')
 
-    // Dashboard
-    router.on('/dashboard').renderInertia('dashboard')
+    // Dashboard - with user stats
+    router.get('/dashboard', async ({ inertia, auth }) => {
+      const { default: Video } = await import('#models/video')
+
+      // Get user's videos count
+      const videoCount = await Video.query().where('user_id', auth.user!.id).count('* as total')
+
+      // Get total views and likes for user's videos using raw query for proper aggregation
+      const { default: db } = await import('@adonisjs/lucid/services/db')
+      const statsResult = await db
+        .from('videos')
+        .where('user_id', auth.user!.id)
+        .sum('view_count as totalViews')
+        .sum('like_count as totalLikes')
+        .first()
+
+      return inertia.render('dashboard', {
+        stats: {
+          videos: Number(videoCount[0].$extras.total) || 0,
+          views: Number(statsResult?.totalViews) || 0,
+          likes: Number(statsResult?.totalLikes) || 0,
+        },
+      })
+    })
+
+    // Gallery - with video data (published + user's pending videos)
+    router.get('/gallery', async ({ inertia, auth }) => {
+      const { default: Video } = await import('#models/video')
+
+      // Get published videos OR user's own videos (even if pending)
+      const videos = await Video.query()
+        .where((query) => {
+          query.where('is_published', true).orWhere('user_id', auth.user!.id)
+        })
+        .orderBy('created_at', 'desc')
+        .paginate(1, 20)
+
+      return inertia.render('gallery', {
+        videos,
+        userId: auth.user!.id,
+      })
+    })
+
+    // Upload page
+    router.on('/upload').renderInertia('upload')
+
+    // Video streaming route (signed URL)
+    router.get('/videos/stream/:id', async ({ params, response }) => {
+      const { default: Video } = await import('#models/video')
+      const { default: drive } = await import('@adonisjs/drive/services/main')
+
+      const video = await Video.findOrFail(params.id)
+
+      // Increment view count when serving video
+      video.viewCount++
+      await video.save()
+
+      const signedUrl = await drive.use('spaces').getSignedUrl(video.filePath, {
+        expiresIn: '1 hour',
+      })
+
+      return response.redirect(signedUrl)
+    })
 
     // Video upload routes
     router.post('/videos/upload', '#controllers/video_upload_controller.upload')
@@ -103,6 +164,6 @@ router
     router.get('/videos/:id', '#controllers/video_upload_controller.show')
     router.post('/videos/:id/publish', '#controllers/video_upload_controller.publish')
     router.get('/videos/:id/url', '#controllers/video_upload_controller.getSignedUrl')
-    router.delete('/videos/:id', '#controllers/video_upload_controller.destroy')
+    router.delete('/videos/:id', '#controllers/video_upload_controller.delete')
   })
   .use(middleware.auth())

@@ -10,9 +10,14 @@ interface DashboardProps {
     }
     isLoggedIn: boolean
   }
+  stats: {
+    videos: number
+    views: number
+    likes: number
+  }
 }
 
-export default function Dashboard({ auth }: DashboardProps) {
+export default function Dashboard({ auth, stats }: DashboardProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = () => {
@@ -66,19 +71,19 @@ export default function Dashboard({ auth }: DashboardProps) {
             <div className="card-neo text-center">
               <div className="text-4xl mb-2">📹</div>
               <h3 className="font-bold text-text uppercase text-sm mb-1">Videos</h3>
-              <p className="text-3xl font-black text-text">0</p>
+              <p className="text-3xl font-black text-text">{stats.videos}</p>
             </div>
 
             <div className="card-neo text-center">
               <div className="text-4xl mb-2">👁</div>
               <h3 className="font-bold text-text uppercase text-sm mb-1">Vues</h3>
-              <p className="text-3xl font-black text-text">0</p>
+              <p className="text-3xl font-black text-text">{stats.views}</p>
             </div>
 
             <div className="card-neo text-center">
               <div className="text-4xl mb-2">❤️</div>
               <h3 className="font-bold text-text uppercase text-sm mb-1">Likes</h3>
-              <p className="text-3xl font-black text-text">0</p>
+              <p className="text-3xl font-black text-text">{stats.likes}</p>
             </div>
           </div>
 

@@ -22,12 +22,13 @@ const driveConfig = defineConfig({
      */
     spaces: services.s3({
       credentials: {
-        accessKeyId: env.get('MINIO_ACCESS_KEY'),
-        secretAccessKey: env.get('MINIO_SECRET_KEY'),
+        accessKeyId: env.get('MINIO_ACCESS_KEY') || '',
+        secretAccessKey: env.get('MINIO_SECRET_KEY') || '',
       },
       region: env.get('MINIO_REGION', 'us-east-1'),
-      bucket: env.get('MINIO_BUCKET'),
-      endpoint: env.get('MINIO_ENDPOINT'),
+      bucket: env.get('MINIO_BUCKET') || 'memes',
+      endpoint: env.get('MINIO_ENDPOINT') || 'http://localhost:9000',
+      forcePathStyle: true,
       visibility: 'public',
     }),
   },

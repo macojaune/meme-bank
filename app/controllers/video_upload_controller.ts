@@ -1,17 +1,54 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Video from '#models/video'
-import VideoMetadata from '#models/video_metadata'
-import { inject } from '@adonisjs/core'
 import drive from '@adonisjs/drive/services/main'
+import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 
-@inject()
 export default class VideoUploadController {
+  /**
+   * Ensure bucket exists
+   */
+  private async ensureBucket() {
+    const { S3Client, CreateBucketCommand, BucketAlreadyOwnedByYou } = await import(
+      '@aws-sdk/client-s3'
+    )
+    const client = new S3Client({
+      endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
+      region: process.env.MINIO_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+        secretAccessKey: process.env.MINIO_SECRET_KEY || 'minioadmin123',
+      },
+      forcePathStyle: true,
+    })
+
+    try {
+      await client.send(
+        new CreateBucketCommand({
+          Bucket: process.env.MINIO_BUCKET || 'memes',
+        })
+      )
+    } catch (error: any) {
+      // Bucket already exists - ignore
+      if (
+        error.name === 'BucketAlreadyOwnedByYou' ||
+        error.name === 'BucketAlreadyExists' ||
+        error.message?.includes('already own it')
+      ) {
+        return
+      }
+      throw error
+    }
+  }
+
   /**
    * Upload a new video file
    */
   async upload({ request, response, auth }: HttpContext) {
     try {
+      // Ensure bucket exists
+      await this.ensureBucket()
+
       // Validate the uploaded file
       const file = request.file('video', {
         size: '10mb',
@@ -30,14 +67,15 @@ export default class VideoUploadController {
         })
       }
 
-      // Generate filename with timestamp to avoid conflicts
-      const timestamp = Date.now()
-      const filename = `${timestamp}-${file.clientName}`
-      const directory = 'videos'
-      const filePath = `${directory}/${filename}`
+      // Generate secure random filename
+      const fileExt = file.extname || 'mp4'
+      const filename = `${randomUUID()}.${fileExt}`
+      const filePath = `videos/${filename}`
 
-      // Upload file to MinIO using Drive
-      await file.move(`./${filePath}`)
+      // Read file content and upload to Drive (MinIO)
+      const fs = await import('node:fs')
+      const fileContent = fs.readFileSync(file.tmpPath!)
+      await drive.use('spaces').put(filePath, fileContent)
 
       // Get region from request
       const region = request.input('region')
@@ -47,7 +85,7 @@ export default class VideoUploadController {
       const validatedRegion = region && allowedRegions.includes(region) ? region : null
 
       // Create video record in database
-      const video = await Video.create({
+      await Video.create({
         userId: auth.user!.id,
         title: request.input('title', file.clientName),
         description: request.input('description'),
@@ -62,45 +100,8 @@ export default class VideoUploadController {
         region: validatedRegion,
       })
 
-      // Create video metadata record
-      await VideoMetadata.create({
-        videoId: video.id,
-        transcription: null, // Will be set after AI processing
-        metadata: {
-          originalName: file.clientName,
-          mimeType: 'unknown',
-          size: file.size,
-        },
-        embedding: null, // Will be set after processing
-        analysisResults: null, // Will be set after AI processing
-        language: request.input('language', 'fr'),
-        hasCaptions: false,
-      })
-
-      return response.created({
-        message: 'Video uploaded successfully',
-        video: {
-          id: video.id,
-          title: video.title,
-          description: video.description,
-          filePath: video.filePath,
-          thumbnailPath: video.thumbnailPath,
-          durationSeconds: video.durationSeconds,
-          isPublished: video.isPublished,
-          uploadDate: video.uploadDate,
-          metadata: {
-            language: request.input('language', 'fr'),
-            fileSize: file.size,
-            mimeType: 'unknown',
-          },
-          nextSteps: [
-            'Process video (extract metadata, generate thumbnail)',
-            'Transcript the video (AI processing)',
-            'Add tags and categories',
-            'Publish the video',
-          ],
-        },
-      })
+      // Redirect back to gallery on success
+      return response.redirect('/gallery')
     } catch (error) {
       console.error('Upload error:', error)
       return response.internalServerError({
@@ -108,35 +109,6 @@ export default class VideoUploadController {
         message: error.message,
       })
     }
-  }
-
-  /**
-   * Get all videos for the authenticated user
-   */
-  async index({ auth, request, response }: HttpContext) {
-    const page = request.input('page', 1)
-    const limit = request.input('limit', 20)
-    const filters = {
-      isPublished: request.input('published'),
-      isFeatured: request.input('featured'),
-    }
-
-    const query = Video.query().where('userId', auth.user!.id)
-
-    // Apply filters
-    if (filters.isPublished !== undefined) {
-      query.where('is_published', filters.isPublished)
-    }
-    if (filters.isFeatured !== undefined) {
-      query.where('is_featured', filters.isFeatured)
-    }
-
-    // Eager load metadata and user
-    query.preload('metadata').preload('tags').preload('categories')
-
-    const videos = await query.orderBy('created_at', 'desc').paginate(page, limit)
-
-    return response.ok(videos)
   }
 
   /**
@@ -166,75 +138,33 @@ export default class VideoUploadController {
     // Basic query without problematic preloading for now
     const videos = await query.orderBy('created_at', 'desc').paginate(page, limit)
 
-    return response.ok({
-      meta: {
-        total: videos.getMeta().total,
-        perPage: videos.getMeta().per_page,
-        currentPage: videos.getMeta().current_page,
-        lastPage: videos.getMeta().last_page,
-      },
-      data: videos.all(),
-    })
+    return response.ok(videos)
   }
 
   /**
-   * Get details of a specific video
+   * Get video details (for public viewing)
    */
   async show({ params, response }: HttpContext) {
-    const video = await Video.query()
-      .where('id', params.id)
-      .preload('metadata')
-      .preload('user')
-      .preload('tags')
-      .preload('categories')
-      .preload('comments')
-      .preload('likes')
-      .preload('views')
-      .firstOrFail()
-
-    return response.ok(video)
-  }
-
-  /**
-   * Publish a video
-   */
-  async publish({ params, auth, response }: HttpContext) {
-    const video = await Video.findOrFail(params.id)
-
-    // Check ownership
-    if (video.userId !== auth.user!.id) {
-      return response.forbidden({ error: 'You can only publish your own videos' })
-    }
-
-    video.isPublished = true
-    await video.save()
-
-    return response.ok({
-      message: 'Video published successfully',
-      video,
-    })
-  }
-
-  /**
-   * Get video signed URL for direct access
-   */
-  async getSignedUrl({ params, response }: HttpContext) {
     try {
       const video = await Video.findOrFail(params.id)
 
-      // Generate signed URL (will expire after 1 hour)
-      const url = await getSignedUrl(video.filePath, {
-        expiresIn: 3600, // 1 hour
-      })
+      // Check if video is published
+      if (!video.isPublished) {
+        return response.notFound({
+          error: 'Video not found',
+        })
+      }
+
+      // Increment view count
+      video.viewCount++
+      await video.save()
 
       return response.ok({
-        url,
-        filename: video.filePath,
+        video: video,
       })
     } catch (error) {
-      return response.internalServerError({
-        error: 'Failed to generate URL',
-        message: error.message,
+      return response.notFound({
+        error: 'Video not found',
       })
     }
   }
@@ -242,35 +172,86 @@ export default class VideoUploadController {
   /**
    * Delete a video
    */
-  async destroy({ params, auth, response }: HttpContext) {
-    const video = await Video.findOrFail(params.id)
+  async delete({ params, response, auth }: HttpContext) {
+    try {
+      const video = await Video.findOrFail(params.id)
 
-    // Check ownership
-    if (video.userId !== auth.user!.id) {
-      return response.forbidden({ error: 'You can only delete your own videos' })
+      // Check if user owns the video or is admin
+      if (video.userId !== auth.user!.id) {
+        return response.forbidden({
+          error: 'You do not have permission to delete this video',
+        })
+      }
+
+      // Delete file from storage
+      const driveService = drive.use('spaces')
+      await driveService.delete(video.filePath)
+
+      if (video.thumbnailPath) {
+        await driveService.delete(video.thumbnailPath)
+      }
+
+      // Delete video record
+      await video.delete()
+
+      // Return success for API/Inertia
+      return response.ok({
+        message: 'Video deleted successfully',
+        redirect: '/gallery',
+      })
+    } catch (error) {
+      return response.internalServerError({
+        error: 'Failed to delete video',
+        message: error.message,
+      })
     }
-
-    // Delete file from storage
-    const driveService = drive.use('spaces')
-    await driveService.delete(video.filePath)
-
-    if (video.thumbnailPath) {
-      await driveService.delete(video.thumbnailPath)
-    }
-
-    // Delete database records
-    await video.metadata.delete()
-    await video.delete()
-
-    return response.ok({
-      message: 'Video deleted successfully',
-    })
   }
-}
 
-// Helper function to generate signed URL
-async function getSignedUrl(filePath: string, _options?: { expiresIn: number }) {
-  // This would use Drive's signed URL functionality
-  // For now, return a placeholder URL
-  return drive.use('spaces').getUrl(filePath)
+  /**
+   * Get signed URL for video (for private videos)
+   */
+  async getSignedUrl({ params, response, auth }: HttpContext) {
+    try {
+      const video = await Video.findOrFail(params.id)
+
+      // Increment view count when serving video
+      video.viewCount++
+      await video.save()
+
+      // Generate signed URL
+      const driveService = drive.use('spaces')
+      const url = await driveService.getSignedUrl(video.filePath, {
+        expiresIn: '1h',
+      })
+
+      return response.ok({
+        url: url,
+      })
+    } catch (error) {
+      return response.internalServerError({
+        error: 'Failed to generate signed URL',
+        message: error.message,
+      })
+    }
+  }
+
+  /**
+   * Increment video view count
+   */
+  async incrementViews({ params, response }: HttpContext) {
+    try {
+      const video = await Video.findOrFail(params.id)
+
+      // Increment view count
+      video.viewCount++
+      await video.save()
+
+      // Return JSON for API response
+      return response.ok({ success: true })
+    } catch (error) {
+      return response.notFound({
+        error: 'Video not found',
+      })
+    }
+  }
 }
