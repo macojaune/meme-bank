@@ -140,7 +140,7 @@ export default class VideoUploadController {
       // Queue transcription job after successful upload
       try {
         const queueService = new QueueService()
-        await queueService.addJob(queueConfig.queues.transcription.name, {
+        await queueService.addJob('transcription', {
           videoId: video.id,
           filePath: filePath,
           language: 'fr', // Default to French for Caribbean memes
@@ -151,8 +151,23 @@ export default class VideoUploadController {
         console.error('[Upload] Failed to queue transcription job:', queueError)
       }
 
-      // Redirect back to gallery on success
-      return response.redirect('/gallery')
+      // Return the created video data (Inertia will handle the redirect)
+      return response.ok({
+        data: {
+          id: video.id,
+          title: video.title,
+          description: video.description,
+          filePath: video.filePath,
+          thumbnailPath: video.thumbnailPath,
+          durationSeconds: video.durationSeconds,
+          region: video.region,
+          isPublished: video.isPublished,
+          viewCount: video.viewCount,
+          likeCount: video.likeCount,
+          createdAt: video.createdAt,
+          userId: video.userId,
+        },
+      })
     } catch (error) {
       console.error('Upload error:', error)
       return response.internalServerError({
@@ -164,14 +179,23 @@ export default class VideoUploadController {
 
   /**
    * Get all public videos (for public API)
+   * Includes published videos + current user's unpublished videos (for processing visibility)
    */
-  async publicIndex({ request, response }: HttpContext) {
+  async publicIndex({ request, response, auth }: HttpContext) {
     const page = request.input('page', 1)
     const limit = request.input('limit', 20)
     const search = request.input('search')
     const language = request.input('language')
 
-    const query = Video.query().where('is_published', true)
+    const query = Video.query().where((builder) => {
+      builder.where('is_published', true)
+      // If user is authenticated, also show their unpublished videos
+      if (auth.user) {
+        builder.orWhere((subBuilder) => {
+          subBuilder.where('is_published', false).where('user_id', auth.user!.id)
+        })
+      }
+    })
 
     // Apply search filter
     if (search) {
@@ -182,7 +206,7 @@ export default class VideoUploadController {
     if (language) {
       // Without preloading for now
       // query.whereHas('metadata', (metadataQuery) => {
-      //   metadataQuery.where('language', language)
+      //   query.where('language', language)
       // })
     }
 

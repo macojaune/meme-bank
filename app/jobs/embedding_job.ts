@@ -55,5 +55,8 @@ export async function createEmbeddingWorker() {
   const { default: QueueService } = await import('../services/queue_service.js')
   const queueService = new QueueService()
 
-  return queueService.createWorker(queueConfig.queues.embedding.name, processEmbeddingJob)
+  return queueService.createWorker(
+    'embedding',
+    processEmbeddingJob as (job: any) => Promise<JobResult>
+  )
 }

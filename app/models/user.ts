@@ -26,7 +26,7 @@ const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
 export default class User extends compose(BaseModel, AuthFinder) {
   @column({ isPrimary: true })
   declare id: string
-  
+
   @beforeCreate()
   static assignUuid(user: User) {
     user.id = uuidv4()
@@ -46,6 +46,9 @@ export default class User extends compose(BaseModel, AuthFinder) {
 
   @column.dateTime()
   declare resetTokenExpiresAt: DateTime | null
+
+  @column()
+  declare totalPoints: number
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

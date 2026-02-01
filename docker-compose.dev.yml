@@ -96,6 +96,47 @@ services:
       - .:/app
       - /app/node_modules
 
+  # Queue Workers for transcription, embedding, and video processing
+  workers:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memebank_workers_dev
+    restart: unless-stopped
+    networks:
+      - memebank_dev_network
+    environment:
+      - NODE_ENV=development
+      - PORT=63240
+      - HOST=0.0.0.0
+      - APP_KEY=${APP_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=memebank_user
+      - DB_PASSWORD=memebank_password
+      - DB_DATABASE=memebank_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_PUBLIC_URL=http://localhost:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=memes
+      - MINIO_REGION=us-east-1
+      - AI_PROVIDER=whispercpp
+      - WHISPER_MODEL_PATH=/models/ggml-base.bin
+      - WHISPER_CLI_PATH=/usr/local/bin/whisper-cli
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    command: ['sh', '-c', 'sleep 5 && node ace queue:work all']
+    volumes:
+      - .:/app
+      - /app/node_modules
+
   # Database Admin Interface
   adminer:
     image: adminer:latest

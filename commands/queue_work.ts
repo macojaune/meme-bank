@@ -4,12 +4,16 @@ import QueueService from '#services/queue_service'
 import { createTranscriptionWorker } from '#jobs/transcription_job'
 import { createEmbeddingWorker } from '#jobs/embedding_job'
 import { processThumbnailJob } from '#jobs/thumbnail_job'
+import { createDeadLetterWorker } from '#jobs/dead_letter_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
   static description = 'Start queue workers to process jobs'
 
-  @args.string({ description: 'Queue name (transcription, embedding, or all)', required: false })
+  @args.string({
+    description: 'Queue name (transcription, embedding, deadLetter, or all)',
+    required: false,
+  })
   declare queue: string
 
   static options: CommandOptions = {
@@ -40,13 +44,24 @@ export default class QueueWork extends BaseCommand {
       if (queueName === 'all' || queueName === 'videoProcessing') {
         this.logger.info('Starting video processing (thumbnail) worker...')
         const queueService = new QueueService()
-        const thumbnailWorker = queueService.createWorker('videoProcessing', processThumbnailJob)
+        const thumbnailWorker = queueService.createWorker(
+          'videoProcessing',
+          processThumbnailJob as (job: any) => Promise<any>
+        )
         workers.push(thumbnailWorker)
+      }
+
+      if (queueName === 'all' || queueName === 'deadLetter') {
+        this.logger.info('Starting dead letter worker...')
+        const deadLetterWorker = await createDeadLetterWorker()
+        workers.push(deadLetterWorker)
       }
 
       if (workers.length === 0) {
         this.logger.error(`Unknown queue: ${queueName}`)
-        this.logger.info('Available queues: transcription, embedding, videoProcessing, all')
+        this.logger.info(
+          'Available queues: transcription, embedding, videoProcessing, deadLetter, all'
+        )
         return
       }
 

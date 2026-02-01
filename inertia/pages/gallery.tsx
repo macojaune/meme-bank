@@ -1,8 +1,8 @@
-import { Head, Link, router, useForm } from '@inertiajs/react'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import VideoCard from '../components/video_card'
-import VideoModal from '../components/video_modal'
-import SearchBar from '../components/search_bar'
+import VideoCard from '../components/video_card.js'
+import VideoModal from '../components/video_modal.js'
+import SearchBar from '../components/search_bar.js'
 
 const UPLOAD_REGIONS = [
   { id: 'guadeloupe', name: 'Guadeloupe' },
@@ -15,14 +15,15 @@ const UPLOAD_REGIONS = [
 interface Video {
   id: string
   title: string
-  description: string
+  description: string | null
   filePath: string
   thumbnailPath: string | null
-  region: string
+  durationSeconds: number | null
+  region: string | null
   createdAt: string
   viewCount: number
   likeCount: number
-  userId: number
+  userId: string
   isPublished: boolean
 }
 
@@ -42,8 +43,15 @@ const REGIONS: Record<string, { name: string }> = {
 
 interface GalleryProps {
   videos: VideosResponse | null
-  userId: number
+  userId: string
   likedVideoIds: string[]
+}
+
+interface Person {
+  id: string
+  name: string
+  socialMediaHandle: string | null
+  platform: string | null
 }
 
 // Helper to get video stream URL
@@ -94,8 +102,19 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
   })
   const [isSearching, setIsSearching] = useState(false)
 
+  // Abort controller for cancelling pending requests
+  const abortControllerRef = useRef<AbortController | null>(null)
+
   // Search videos
   const performSearch = async (pageNum = 1, append = false) => {
+    // Cancel previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController()
+
     setIsSearching(true)
     try {
       const params = new URLSearchParams()
@@ -106,7 +125,15 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
       params.append('page', pageNum.toString())
       params.append('limit', '20')
 
-      const response = await fetch(`/api/v1/search?${params}`)
+      const response = await fetch(`/api/v1/search?${params}`, {
+        signal: abortControllerRef.current.signal,
+      })
+
+      // Check if request was aborted
+      if (!response.ok) {
+        throw new Error('Search failed')
+      }
+
       const data = await response.json()
 
       if (data.data) {
@@ -119,7 +146,10 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
         setHasMore(data.meta && pageNum < data.meta.lastPage)
       }
     } catch (error) {
-      console.error('Search error:', error)
+      // Don't log aborted requests as errors
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Search error:', error)
+      }
     } finally {
       setIsSearching(false)
     }
@@ -141,6 +171,43 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     region: '',
     video: null as File | null,
   })
+
+  // Handle person click - navigate to gallery filtered by person
+  const handlePersonClick = (person: Person) => {
+    const params = new URLSearchParams()
+    params.append('personId', person.id)
+    params.append('personName', person.name)
+
+    // Update URL without page reload
+    window.history.pushState({}, '', `/gallery?${params}`)
+
+    // Update filters and search
+    setSearchFilters({
+      query: '',
+      region: '',
+      personId: person.id,
+      sortBy: 'newest',
+    })
+    setActivePersonName(person.name)
+    setVideoList([])
+    setPage(1)
+    performSearch(1, false)
+  }
+
+  // Clear person filter
+  const clearPersonFilter = () => {
+    window.history.pushState({}, '', '/gallery')
+    setSearchFilters({
+      query: '',
+      region: '',
+      personId: '',
+      sortBy: 'newest',
+    })
+    setActivePersonName(null)
+    setVideoList([])
+    setPage(1)
+    performSearch(1, false)
+  }
 
   // Handle video click - increment view count and open modal
   const handleVideoClick = async (video: Video) => {
@@ -224,11 +291,34 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
   // Infinite scroll observer - only enable after initial mount to prevent hydration issues
   const [isMounted, setIsMounted] = useState(false)
+  const [activePersonName, setActivePersonName] = useState<string | null>(null)
 
+  // Read URL params on mount and update filters
   useEffect(() => {
     setIsMounted(true)
+
+    // Parse URL query params
+    const urlParams = new URLSearchParams(window.location.search)
+    const personId = urlParams.get('personId')
+    const personName = urlParams.get('personName')
+    const region = urlParams.get('region')
+    const query = urlParams.get('q')
+
+    // Update filters from URL
+    setSearchFilters((prev) => ({
+      ...prev,
+      personId: personId || '',
+      region: region || '',
+      query: query || '',
+    }))
+
+    if (personName) {
+      setActivePersonName(personName)
+    }
+
     // Initial search load
     performSearch(1, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -249,6 +339,44 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
     return () => observer.disconnect()
   }, [hasMore, loading, loadMoreVideos, isMounted])
+
+  // Polling for processing videos - update status every 5 seconds
+  useEffect(() => {
+    if (!isMounted) return
+
+    const processingVideos = videoList.filter((v) => !v.isPublished)
+    if (processingVideos.length === 0) return
+
+    const interval = setInterval(async () => {
+      try {
+        const videoIds = processingVideos.map((v) => v.id)
+        const response = await fetch('/api/v1/videos/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoIds }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          // Update videos that are now complete
+          setVideoList((prev) =>
+            prev.map((video) => {
+              const status = data.data.find((s: any) => s.id === video.id)
+              if (status && status.isComplete && !video.isPublished) {
+                return { ...video, isPublished: true }
+              }
+              return video
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [videoList, isMounted])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -326,13 +454,17 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
           setUploadProgress(progress.loaded / progress.total)
         }
       },
-      onSuccess: () => {
+      onSuccess: (page) => {
         reset()
         setSelectedFile(null)
         setUploadProgress(0)
         setShowUploadModal(false)
-        // Refresh page to show new video
-        window.location.reload()
+
+        // Add the new video to the list immediately
+        const newVideo = page.props.data as Video
+        if (newVideo) {
+          setVideoList((prev) => [newVideo, ...prev])
+        }
       },
       onError: () => {
         setUploadProgress(0)
@@ -355,7 +487,22 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
         {/* Navigation */}
         <nav className="border-b-2 border-black bg-white p-4 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <h1 className="text-xl font-black text-black uppercase tracking-tight">Galerie</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-black text-black uppercase tracking-tight">Galerie</h1>
+              {activePersonName && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">/</span>
+                  <span className="badge-neo bg-secondary-300 text-sm">👤 {activePersonName}</span>
+                  <button
+                    type="button"
+                    onClick={clearPersonFilter}
+                    className="text-xs text-gray-500 hover:text-black underline"
+                  >
+                    ✕ Retirer le filtre
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex gap-3">
               <Link href="/dashboard" className="btn-neo btn-neo-secondary text-sm px-4 py-2">
                 Dashboard
@@ -376,14 +523,27 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
           <SearchBar
             filters={searchFilters}
             onChange={setSearchFilters}
-            onSearch={() => performSearch(1, false)}
+            onSearch={(filters) => {
+              if (filters) {
+                setSearchFilters(filters)
+              }
+              performSearch(1, false)
+            }}
             regions={UPLOAD_REGIONS}
           />
         </div>
 
         {/* Video Grid */}
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {videoList.length === 0 ? (
+          {/* Searching indicator - shows above results */}
+          {isSearching && videoList.length > 0 && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              <span>Recherche en cours...</span>
+            </div>
+          )}
+
+          {videoList.length === 0 && !isSearching ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🎭</div>
               <h2 className="text-xl font-bold text-black mb-2">Aucune video</h2>
@@ -430,6 +590,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
           userId={userId}
           onClose={() => setSelectedVideo(null)}
           onDelete={handleDeleteVideo}
+          onPersonClick={handlePersonClick}
         />
 
         {/* Upload Modal */}

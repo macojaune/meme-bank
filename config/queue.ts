@@ -58,6 +58,18 @@ export default {
         },
       } as QueueOptions,
     },
+
+    // Dead letter queue pour les jobs échoués
+    deadLetter: {
+      name: 'dead-letter',
+      opts: {
+        defaultJobOptions: {
+          attempts: 1,
+          removeOnComplete: 100,
+          removeOnFail: false, // Garder les jobs échoués pour review
+        },
+      } as QueueOptions,
+    },
   },
 
   // Configuration des workers

@@ -106,6 +106,14 @@ router
     // Search routes
     router.get('/search', '#controllers/search_controller.search')
     router.get('/persons/:personId/videos', '#controllers/search_controller.byPerson')
+
+    // Leaderboard routes
+    router.get('/leaderboard', '#controllers/leaderboard_controller.index')
+    router.get('/leaderboard/me', '#controllers/leaderboard_controller.me').use(middleware.auth())
+
+    // Video status routes (for polling processing state)
+    router.post('/videos/status', '#controllers/video_status_controller.checkStatus')
+    router.get('/videos/:id/status', '#controllers/video_status_controller.show')
   })
   .prefix('/api/v1')
 
@@ -208,28 +216,45 @@ router
     // Upload page
     router.on('/upload').renderInertia('upload')
 
-    // Video streaming route (signed URL)
+    // Video streaming route (proxy through app to avoid CORS issues)
     router.get('/videos/stream/:id', async ({ params, response, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: drive } = await import('@adonisjs/drive/services/main')
-      const { getPublicUrl } = await import('#utils/url_helper')
 
-      const video = await Video.findOrFail(params.id)
+      try {
+        const video = await Video.findOrFail(params.id)
 
-      // Increment view count when serving video (skip for owner)
-      if (video.userId !== auth.user!.id) {
-        video.viewCount++
-        await video.save()
+        // Increment view count when serving video (skip for owner)
+        if (video.userId !== auth.user!.id) {
+          video.viewCount++
+          await video.save()
+        }
+
+        // Get video content from MinIO
+        const videoBuffer = await drive.use('spaces').getBytes(video.filePath)
+
+        // Determine content type from file extension
+        const ext = video.filePath.split('.').pop()?.toLowerCase()
+        const contentType =
+          ext === 'mp4'
+            ? 'video/mp4'
+            : ext === 'webm'
+              ? 'video/webm'
+              : ext === 'ogg'
+                ? 'video/ogg'
+                : 'video/mp4'
+
+        // Stream the content with proper headers for video playback
+        response.header('Content-Type', contentType)
+        response.header('Content-Length', videoBuffer.length.toString())
+        response.header('Accept-Ranges', 'bytes')
+        response.header('Cache-Control', 'public, max-age=3600')
+
+        return response.send(videoBuffer)
+      } catch (error) {
+        console.error('[Stream] Error serving video:', error)
+        return response.status(500).send({ error: 'Failed to stream video' })
       }
-
-      const signedUrl = await drive.use('spaces').getSignedUrl(video.filePath, {
-        expiresIn: '1 hour',
-      })
-
-      // Transform URL from internal (minio:9000) to public (localhost:9000)
-      const publicUrl = getPublicUrl(signedUrl)
-
-      return response.redirect(publicUrl)
     })
 
     // Video upload routes

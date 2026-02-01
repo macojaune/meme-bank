@@ -2,6 +2,30 @@ import { Head, router, Link } from '@inertiajs/react'
 import { useState } from 'react'
 import VideoModal from '../components/video_modal'
 
+/**
+ * Get the public URL for a thumbnail from MinIO
+ * SSR-safe for dashboard rendering
+ */
+function getThumbnailUrl(thumbnailPath: string | null): string | null {
+  if (!thumbnailPath) return null
+
+  // If it's already a full URL, return it
+  if (thumbnailPath.startsWith('http')) {
+    return thumbnailPath
+  }
+
+  // Default URL (works for both SSR and browser)
+  const minioUrl =
+    typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? `http://${window.location.hostname}:9000`
+      : 'http://localhost:9000'
+
+  const bucket = 'memes'
+  const cleanPath = thumbnailPath.startsWith('/') ? thumbnailPath.slice(1) : thumbnailPath
+
+  return `${minioUrl}/${bucket}/${cleanPath}`
+}
+
 interface Video {
   id: string
   title: string
@@ -143,11 +167,25 @@ export default function Dashboard({ auth, stats, videos }: DashboardProps) {
                 >
                   {/* Thumbnail */}
                   <div className="aspect-video bg-gray-100 border-b-2 border-black relative">
-                    {video.thumbnailPath ? (
+                    {getThumbnailUrl(video.thumbnailPath) ? (
                       <img
-                        src={video.thumbnailPath}
+                        src={getThumbnailUrl(video.thumbnailPath)!}
                         alt={video.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Fallback to placeholder if image fails to load
+                          const img = e.target as HTMLImageElement
+                          img.style.display = 'none'
+                          const parent = img.parentElement
+                          if (parent) {
+                            const placeholder = document.createElement('div')
+                            placeholder.className =
+                              'w-full h-full flex items-center justify-center bg-gray-200'
+                            placeholder.innerHTML = '<span class="text-4xl">🎬</span>'
+                            parent.appendChild(placeholder)
+                          }
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-warm">

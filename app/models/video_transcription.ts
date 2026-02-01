@@ -12,6 +12,7 @@ export enum TranscriptionStatus {
   AUTO_GENERATED = 'auto_generated',
   COMMUNITY_CORRECTED = 'community_corrected',
   ADMIN_VALIDATED = 'admin_validated',
+  FAILED = 'failed',
 }
 
 /**

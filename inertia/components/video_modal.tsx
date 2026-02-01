@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
-import VideoPlayer from './video_player'
-import TranscriptionViewer from './transcription_viewer'
-import TranscriptionHistory from './transcription_history'
-import PersonTagInput from './person_tag_input'
+import VideoPlayer from './video_player.js'
+import TranscriptionViewer from './transcription_viewer.js'
+import TranscriptionHistory from './transcription_history.js'
+import PersonTagInput from './person_tag_input.js'
 
 interface Video {
   id: string
@@ -25,6 +25,7 @@ interface VideoModalProps {
   userId: string
   onClose: () => void
   onDelete: (videoId: string) => void
+  onPersonClick?: (person: Person) => void
 }
 
 const REGIONS: Record<string, { name: string }> = {
@@ -60,10 +61,12 @@ function VideoPersonsEditor({
   videoId,
   userId,
   videoUserId,
+  onPersonClick,
 }: {
   videoId: string
   userId: string
   videoUserId: string
+  onPersonClick?: (person: Person) => void
 }) {
   const [persons, setPersons] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,6 +74,7 @@ function VideoPersonsEditor({
 
   useEffect(() => {
     loadPersons()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId])
 
   const loadPersons = async () => {
@@ -133,15 +137,17 @@ function VideoPersonsEditor({
         <div className="flex flex-wrap gap-2">
           {persons.length > 0 ? (
             persons.map((person) => (
-              <span
+              <button
                 key={person.id}
-                className="px-2 py-1 bg-secondary-100 border border-black text-sm font-bold"
+                type="button"
+                onClick={() => onPersonClick?.(person)}
+                className="px-2 py-1 bg-secondary-100 border border-black text-sm font-bold hover:bg-secondary-300 hover:shadow-neo transition-all cursor-pointer"
               >
                 {person.name}
                 {person.socialMediaHandle && (
                   <span className="text-xs text-gray-600 ml-1">@{person.socialMediaHandle}</span>
                 )}
-              </span>
+              </button>
             ))
           ) : (
             <span className="text-sm text-gray-500 italic">Aucune personne identifiée</span>
@@ -156,8 +162,19 @@ function getVideoUrl(videoId: string): string {
   return `/videos/stream/${videoId}`
 }
 
-export default function VideoModal({ video, userId, onClose, onDelete }: VideoModalProps) {
+export default function VideoModal({
+  video,
+  userId,
+  onClose,
+  onDelete,
+  onPersonClick,
+}: VideoModalProps) {
   if (!video) return null
+
+  const handlePersonClick = (person: Person) => {
+    onClose() // Fermer le modal
+    onPersonClick?.(person) // Naviguer vers les vidéos de cette personne
+  }
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -206,7 +223,12 @@ export default function VideoModal({ video, userId, onClose, onDelete }: VideoMo
             className="bg-gray-50 overflow-y-auto gap-2"
             style={{ maxHeight: 'calc(100vh - 6rem)' }}
           >
-            <VideoPersonsEditor videoId={video.id} userId={userId} videoUserId={video.userId} />
+            <VideoPersonsEditor
+              videoId={video.id}
+              userId={userId}
+              videoUserId={video.userId}
+              onPersonClick={handlePersonClick}
+            />
             <TranscriptionViewer videoId={video.id} isOwner={video.userId === userId} />
             <TranscriptionHistory videoId={video.id} />
           </div>

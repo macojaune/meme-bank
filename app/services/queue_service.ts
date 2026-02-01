@@ -43,18 +43,26 @@ export default class QueueService {
 
   /**
    * Créer un worker pour traiter les jobs
+   * queueKey: 'transcription', 'embedding', 'videoProcessing', or 'deadLetter'
    */
-  createWorker(queueName: string, processor: (job: Job<JobData>) => Promise<JobResult>): Worker {
-    const concurrency =
-      queueConfig.workers.concurrency[queueName as keyof typeof queueConfig.workers.concurrency] ||
-      1
+  createWorker(queueKey: string, processor: (job: Job<JobData>) => Promise<JobResult>): Worker {
+    const queue = this.queues.get(queueKey)
+    if (!queue) {
+      throw new Error(`Queue '${queueKey}' not found`)
+    }
 
-    const worker = new Worker<JobData, JobResult>(queueName, processor, {
+    const concurrency =
+      queueConfig.workers.concurrency[queueKey as keyof typeof queueConfig.workers.concurrency] || 1
+
+    // Get the actual queue name from the queue instance
+    const actualQueueName = queue.name
+
+    const worker = new Worker<JobData, JobResult>(actualQueueName, processor, {
       connection: queueConfig.connection,
       concurrency,
     })
 
-    this.workers.set(queueName, worker)
+    this.workers.set(queueKey, worker)
 
     // Gestion des erreurs
     worker.on('failed', (job, err) => {

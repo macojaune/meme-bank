@@ -10,8 +10,28 @@ interface SearchFilters {
 interface SearchBarProps {
   filters: SearchFilters
   onChange: (filters: SearchFilters) => void
-  onSearch: () => void
+  onSearch: (filters?: SearchFilters) => void
   regions: Array<{ id: string; name: string }>
+}
+
+// Debounce hook with cancel support
+function useDebounce<T>(value: T, delay: number): { value: T; isPending: boolean } {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+  const [isPending, setIsPending] = useState(false)
+
+  useEffect(() => {
+    setIsPending(true)
+    const timer = setTimeout(() => {
+      setDebouncedValue(value)
+      setIsPending(false)
+    }, delay)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [value, delay])
+
+  return { value: debouncedValue, isPending }
 }
 
 export default function SearchBar({ filters, onChange, onSearch, regions }: SearchBarProps) {
@@ -20,6 +40,18 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
   )
   const [showPersonSuggestions, setShowPersonSuggestions] = useState(false)
   const [personSearch, setPersonSearch] = useState('')
+
+  // Debounce the query for dynamic search (500ms delay for stability)
+  const { value: debouncedQuery, isPending: isTyping } = useDebounce(filters.query, 500)
+
+  // Trigger search when debounced query changes
+  useEffect(() => {
+    // Only auto-search if query has at least 2 characters or was cleared
+    if (debouncedQuery.length === 0 || debouncedQuery.length >= 2) {
+      onSearch()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery])
 
   // Fetch person suggestions
   useEffect(() => {
@@ -44,13 +76,16 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
   }
 
   const clearFilters = () => {
-    onChange({
+    const resetFilters: SearchFilters = {
       query: '',
       region: '',
       personId: '',
       sortBy: 'newest',
-    })
+    }
+    onChange(resetFilters)
     setPersonSearch('')
+    // Trigger search immediately with cleared filters
+    onSearch(resetFilters)
   }
 
   return (
@@ -59,13 +94,20 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
         {/* Main search input */}
         <div className="md:col-span-2">
           <label className="block text-sm font-bold uppercase mb-1">Recherche</label>
-          <input
-            type="text"
-            value={filters.query}
-            onChange={(e) => onChange({ ...filters, query: e.target.value })}
-            placeholder="Rechercher par titre, description, transcription..."
-            className="w-full p-2 border-2 border-black focus:outline-none focus:border-primary-500"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={filters.query}
+              onChange={(e) => onChange({ ...filters, query: e.target.value })}
+              placeholder="Rechercher par titre, description, transcription..."
+              className="w-full p-2 border-2 border-black focus:outline-none focus:border-primary-500 pr-8"
+            />
+            {isTyping && (
+              <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs">
+                ⌨️
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Region filter */}

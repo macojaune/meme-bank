@@ -16,7 +16,19 @@ export interface VideoProcessingJobData {
   filePath: string
 }
 
-export type JobData = TranscriptionJobData | EmbeddingJobData | VideoProcessingJobData
+export interface DeadLetterJobData {
+  videoId: string
+  filePath: string
+  error: string
+  jobType: 'transcription' | 'embedding' | 'videoProcessing'
+  failedAt: string
+}
+
+export type JobData =
+  | TranscriptionJobData
+  | EmbeddingJobData
+  | VideoProcessingJobData
+  | DeadLetterJobData
 
 export interface JobResult {
   success: boolean

@@ -77,7 +77,7 @@ export default class TranscriptionsController {
       await currentTranscription.save()
 
       // Create new revision
-      const newTranscription = await VideoTranscription.create({
+      await VideoTranscription.create({
         videoId: video.id,
         revisionNumber: currentTranscription.revisionNumber + 1,
         status: TranscriptionStatus.COMMUNITY_CORRECTED,
@@ -92,6 +92,10 @@ export default class TranscriptionsController {
         generatedAt: currentTranscription.generatedAt,
         correctedAt: DateTime.now(),
       })
+
+      // Add points to user
+      auth.user.totalPoints += 10
+      await auth.user.save()
 
       // Redirect back for Inertia (stay in modal, page will reload via router.reload())
       return response.redirect().back()

@@ -39,8 +39,8 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
     console.log(`[Thumbnail] Extracting frame at ${timestamp}s...`)
     await new Promise<void>((resolve, reject) => {
       // Use ffmpeg to extract frame at specific timestamp
-      // Scale to 640x360 (16:9) for consistent thumbnails
-      const cmd = `ffmpeg -i "${tempVideoPath}" -ss ${timestamp} -vframes 1 -vf "scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2:black" -q:v 2 "${tempThumbnailPath}" -y 2>&1`
+      // Keep original dimensions (no scaling/padding)
+      const cmd = `ffmpeg -i "${tempVideoPath}" -ss ${timestamp} -vframes 1 -q:v 2 "${tempThumbnailPath}" -y 2>&1`
 
       exec(cmd, { timeout: 60000 }, (error, _stdout, stderr) => {
         if (error) {
@@ -54,12 +54,13 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
 
     console.log(`[Thumbnail] Generated: ${tempThumbnailPath}`)
 
-    // Step 3: Upload thumbnail to S3
+    // Step 3: Upload thumbnail to S3 with public access
     const thumbnailKey = `thumbnails/${videoId}.jpg`
     const thumbnailBuffer = await fs.readFile(tempThumbnailPath)
 
     await drive.use('spaces').put(thumbnailKey, thumbnailBuffer, {
       contentType: 'image/jpeg',
+      visibility: 'public',
     })
 
     console.log(`[Thumbnail] Uploaded to ${thumbnailKey}`)
