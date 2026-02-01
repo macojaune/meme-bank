@@ -18,6 +18,7 @@ import View from './view.js'
 import Comment from './comment.js'
 import Report from './report.js'
 import Playlist from './playlist.js'
+import VideoTranscription from './video_transcription.js'
 import type { HasOne, ManyToMany, HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
 
 export default class Video extends BaseModel {
@@ -110,4 +111,7 @@ export default class Video extends BaseModel {
     onQuery: (query) => query.where('resourceType', 'video'),
   })
   declare reports: HasMany<typeof Report>
+
+  @hasMany(() => VideoTranscription)
+  declare transcriptions: HasMany<typeof VideoTranscription>
 }

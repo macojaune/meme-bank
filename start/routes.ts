@@ -123,6 +123,7 @@ router
     router.get('/gallery', async ({ inertia, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: Like } = await import('#models/like')
+      const { getPublicUrl } = await import('#utils/url_helper')
 
       // Get published videos OR user's own videos (even if pending)
       const videos = await Video.query()
@@ -140,8 +141,18 @@ router
 
       const likedVideoIds = new Set(userLikes.map((l) => l.videoId))
 
+      // Transform URLs from internal (minio:9000) to public (localhost:9000)
+      const transformedVideos = videos.all().map((video) => ({
+        ...video.toJSON(),
+        filePath: getPublicUrl(video.filePath),
+        thumbnailPath: video.thumbnailPath ? getPublicUrl(video.thumbnailPath) : null,
+      }))
+
       return inertia.render('gallery', {
-        videos,
+        videos: {
+          ...videos.toJSON(),
+          data: transformedVideos,
+        },
         userId: auth.user!.id,
         likedVideoIds: Array.from(likedVideoIds),
       })
@@ -154,6 +165,7 @@ router
     router.get('/videos/stream/:id', async ({ params, response, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: drive } = await import('@adonisjs/drive/services/main')
+      const { getPublicUrl } = await import('#utils/url_helper')
 
       const video = await Video.findOrFail(params.id)
 
@@ -167,7 +179,10 @@ router
         expiresIn: '1 hour',
       })
 
-      return response.redirect(signedUrl)
+      // Transform URL from internal (minio:9000) to public (localhost:9000)
+      const publicUrl = getPublicUrl(signedUrl)
+
+      return response.redirect(publicUrl)
     })
 
     // Video upload routes

@@ -4,6 +4,7 @@ import Like from '#models/like'
 import drive from '@adonisjs/drive/services/main'
 import QueueService from '#services/queue_service'
 import queueConfig from '#config/queue'
+import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 
@@ -183,9 +184,15 @@ export default class VideoUploadController {
   /**
    * Delete a video
    */
-  async delete({ params, response, auth }: HttpContext) {
+  async delete({ params, response, auth, request }: HttpContext) {
+    logger.info(`[Delete] DELETE request received for video ID: ${params.id}`)
+    logger.info(`[Delete] Auth user: ${auth.user?.id || 'not authenticated'}`)
+    logger.info(`[Delete] Request URL: ${request.url()}`)
+
     try {
+      logger.info(`[Delete] Starting deletion for video ${params.id}`)
       const video = await Video.findOrFail(params.id)
+      logger.info(`[Delete] Found video ${video.id}, userId: ${video.userId}`)
 
       // Check if user owns the video or is admin
       if (video.userId !== auth.user!.id) {
@@ -196,18 +203,23 @@ export default class VideoUploadController {
 
       // Delete file from storage
       const driveService = drive.use('spaces')
+      logger.info(`[Delete] Deleting video file: ${video.filePath}`)
       await driveService.delete(video.filePath)
 
       if (video.thumbnailPath) {
+        logger.info(`[Delete] Deleting thumbnail: ${video.thumbnailPath}`)
         await driveService.delete(video.thumbnailPath)
       }
 
       // Delete video record
+      logger.info(`[Delete] Deleting video record from database`)
       await video.delete()
+      logger.info(`[Delete] Successfully deleted video ${video.id}`)
 
-      // Return success for API/Inertia
-      return response.redirect('/gallery') // was: response.ok({
+      // Return success - Inertia compatible redirect
+      return response.redirect('/gallery')
     } catch (error) {
+      logger.error(`[Delete] Failed to delete video ${params.id}: ${error.message}`)
       return response.internalServerError({
         error: 'Failed to delete video',
         message: error.message,

@@ -47,33 +47,33 @@ const getVideoUrl = (videoId: string) => {
 }
 
 // Delete video handler
-const handleDeleteVideo = async (videoId: string) => {
+const handleDeleteVideo = (videoId: string) => {
+  console.log('[Gallery] Attempting to delete video:', videoId)
+
   if (!confirm('Supprimer cette video ? Cette action est irreversible.')) {
     return
   }
 
-  try {
-    const response = await fetch(`/videos/${videoId}`, {
-      method: 'DELETE',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (response.ok || response.status === 302) {
-      window.location.href = '/gallery'
-    } else {
-      alert('Erreur lors de la suppression')
-    }
-  } catch (error) {
-    console.error('Delete error:', error)
-    window.location.href = '/gallery'
-  }
+  // Use Inertia router.delete() - handles CSRF, cookies, redirects automatically
+  router.delete(`/videos/${videoId}`, {
+    onSuccess: () => {
+      console.log('[Gallery] Video deleted successfully')
+      router.visit('/gallery')
+    },
+    onError: (errors) => {
+      console.error('[Gallery] Delete failed:', errors)
+      alert('Erreur lors de la suppression: ' + (errors.error || 'Erreur inconnue'))
+    },
+  })
 }
 
 export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps) {
   const [userLikes, setUserLikes] = useState<Set<string>>(new Set(likedVideoIds))
-  const [videoList, setVideoList] = useState<Video[]>(videos?.data || [])
+  // Ensure videos are only loaded once on mount to prevent hydration issues
+  const [videoList, setVideoList] = useState<Video[]>(() => {
+    // Use function initializer to ensure stable initial state
+    return videos?.data ? [...videos.data] : []
+  })
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(
     videos?.meta && videos.meta.currentPage < videos.meta.lastPage
@@ -176,8 +176,17 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     }
   }, [loading, hasMore, page])
 
-  // Infinite scroll observer
+  // Infinite scroll observer - only enable after initial mount to prevent hydration issues
+  const [isMounted, setIsMounted] = useState(false)
+
   useEffect(() => {
+    // Mark as mounted after initial render to prevent hydration mismatches
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
@@ -192,7 +201,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     }
 
     return () => observer.disconnect()
-  }, [hasMore, loading, loadMoreVideos])
+  }, [hasMore, loading, loadMoreVideos, isMounted])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -410,8 +419,8 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
                 </div>
               )}
 
-              {/* Observer target */}
-              {hasMore && !loading && <div ref={observerRef} className="h-4" />}
+              {/* Observer target - only render after mount to prevent hydration issues */}
+              {isMounted && hasMore && !loading && <div ref={observerRef} className="h-4" />}
             </>
           )}
         </div>
