@@ -50,7 +50,7 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
       language: result.language,
       confidence: result.confidence || null,
       isCurrent: true,
-      segments: result.segments || null,
+      segmentsJson: result.segments ? JSON.stringify(result.segments) : null,
       pointsAwarded: 0,
       generatedAt: DateTime.now(),
     })

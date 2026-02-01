@@ -4,8 +4,14 @@ import env from '#start/env'
  * Configuration for AI services
  */
 export const aiConfig = {
-  // Provider to use (ollama, openai, etc.)
-  provider: env.get('AI_PROVIDER', 'ollama') as 'ollama' | 'openai',
+  // Provider to use (whispercpp, ollama, openai, etc.)
+  provider: env.get('AI_PROVIDER', 'whispercpp') as 'whispercpp' | 'ollama' | 'openai',
+
+  // Whisper.cpp configuration (local transcription)
+  whispercpp: {
+    modelPath: env.get('WHISPER_MODEL_PATH', '/models/ggml-base.bin'),
+    cliPath: env.get('WHISPER_CLI_PATH', '/usr/local/bin/whisper-cli'),
+  },
 
   // Ollama configuration
   ollama: {

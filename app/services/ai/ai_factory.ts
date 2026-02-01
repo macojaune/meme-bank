@@ -3,6 +3,7 @@ import type {
   AIEmbeddingService,
   AIServiceFactory,
 } from './ai_interfaces.js'
+import { WhisperCppTranscriptionService } from './providers/whisper_cpp_transcription.js'
 import { OllamaTranscriptionService } from './providers/ollama_transcription.js'
 import { OllamaEmbeddingService } from './providers/ollama_embeddings.js'
 import aiConfig from './ai_config.js'
@@ -18,6 +19,9 @@ export class DefaultAIServiceFactory implements AIServiceFactory {
   getTranscriptionService(): AITranscriptionService {
     if (!this.transcriptionService) {
       switch (aiConfig.provider) {
+        case 'whispercpp':
+          this.transcriptionService = new WhisperCppTranscriptionService()
+          break
         case 'ollama':
           this.transcriptionService = new OllamaTranscriptionService()
           break
@@ -25,7 +29,7 @@ export class DefaultAIServiceFactory implements AIServiceFactory {
           // TODO: Implement OpenAI transcription service
           throw new Error('OpenAI transcription service not yet implemented')
         default:
-          this.transcriptionService = new OllamaTranscriptionService()
+          this.transcriptionService = new WhisperCppTranscriptionService()
       }
     }
     return this.transcriptionService
