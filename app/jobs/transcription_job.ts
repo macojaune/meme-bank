@@ -5,6 +5,7 @@ import VideoTranscription, { TranscriptionStatus } from '../models/video_transcr
 import QueueService from '../services/queue_service.js'
 import queueConfig from '#config/queue'
 import { DateTime } from 'luxon'
+import Video from '../models/video.js'
 
 /**
  * Job processor for transcription jobs
@@ -56,6 +57,20 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
     })
 
     console.log(`[Transcription] Stored in database with id: ${transcription.id}`)
+
+    // Auto-publish video if transcription has content
+    if (result.text && result.text.trim().length > 0) {
+      try {
+        const video = await Video.find(videoId)
+        if (video && !video.isPublished) {
+          video.isPublished = true
+          await video.save()
+          console.log(`[Transcription] Video ${videoId} auto-published (transcription ready)`)
+        }
+      } catch (publishError) {
+        console.error(`[Transcription] Failed to auto-publish video ${videoId}:`, publishError)
+      }
+    }
 
     // Queue embedding job with the transcription text
     try {

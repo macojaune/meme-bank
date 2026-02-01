@@ -305,6 +305,32 @@ export default class VideoUploadController {
   }
 
   /**
+   * Publish a video (manual publish for pending videos)
+   */
+  async publish({ params, response, auth }: HttpContext) {
+    try {
+      if (!auth.user) {
+        return response.unauthorized({ error: 'Authentication required' })
+      }
+
+      const video = await Video.findOrFail(params.id)
+
+      // Only owner can publish
+      if (video.userId !== auth.user.id) {
+        return response.forbidden({ error: 'Not authorized' })
+      }
+
+      video.isPublished = true
+      await video.save()
+
+      return response.redirect('/dashboard')
+    } catch (error) {
+      console.error('Publish error:', error)
+      return response.redirect('/dashboard')
+    }
+  }
+
+  /**
    * Toggle like on/off for a video
    */
   async toggleLike({ params, response, auth }: HttpContext) {

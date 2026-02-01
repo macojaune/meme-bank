@@ -255,9 +255,9 @@ export default function Upload() {
               <button
                 type="submit"
                 disabled={processing || !selectedFile}
-                className="btn-neo-primary w-full disabled:opacity-50"
+                className="btn-neo btn-neo-primary w-full disabled:opacity-50"
               >
-                {processing ? 'Upload en cours...' : '📤 Upload Video'}
+                {processing ? 'Upload en cours...' : '📤 Upload'}
               </button>
             </div>
           </form>

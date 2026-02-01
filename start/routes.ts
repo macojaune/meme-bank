@@ -131,12 +131,37 @@ router
         .sum('like_count as totalLikes')
         .first()
 
+      // Get user's videos (both published and pending)
+      const userVideos = await Video.query()
+        .where('user_id', auth.user!.id)
+        .orderBy('created_at', 'desc')
+        .preload('transcriptions', (q) => {
+          q.where('is_current', true)
+        })
+        .preload('persons')
+
       return inertia.render('dashboard', {
         stats: {
           videos: Number(videoCount[0].$extras.total) || 0,
           views: Number(statsResult?.totalViews) || 0,
           likes: Number(statsResult?.totalLikes) || 0,
         },
+        videos: userVideos.map((v) => ({
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          filePath: v.filePath,
+          durationSeconds: v.durationSeconds,
+          thumbnailPath: v.thumbnailPath,
+          isPublished: v.isPublished,
+          region: v.region,
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          createdAt: v.createdAt,
+          userId: v.userId,
+          persons: v.persons.map((p) => ({ id: p.id, name: p.name })),
+          transcription: v.transcriptions[0]?.transcriptionText || null,
+        })),
       })
     })
 

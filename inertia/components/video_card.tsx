@@ -88,16 +88,17 @@ export default function VideoCard({
         </div>
         <div className="flex items-center gap-4 text-sm font-bold text-gray-600">
           <span>{video.viewCount || 0} vues</span>
-          <button
-            type="button"
+          <div
             onClick={(e) => onLikeClick(video.id, e)}
             className={`flex items-center gap-1 px-2 py-1 border-2 border-black ${
               isLiked ? 'bg-red-100' : 'bg-white'
-            } text-black`}
+            } text-black cursor-pointer`}
+            role="button"
+            tabIndex={0}
           >
             <span>{isLiked ? '❤️' : '🤍'}</span>
             <span>{video.likeCount || 0}</span>
-          </button>
+          </div>
         </div>
       </div>
     </button>

@@ -2,11 +2,14 @@ import { Head, Link, router, useForm } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import VideoCard from '../components/video_card'
 import VideoModal from '../components/video_modal'
+import SearchBar from '../components/search_bar'
 
 const UPLOAD_REGIONS = [
   { id: 'guadeloupe', name: 'Guadeloupe' },
   { id: 'martinique', name: 'Martinique' },
   { id: 'guyane', name: 'Guyane' },
+  { id: 'reunion', name: 'La Réunion' },
+  { id: 'mayotte', name: 'Mayotte' },
 ]
 
 interface Video {
@@ -81,6 +84,47 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     videos?.meta && videos.meta.currentPage < videos.meta.lastPage
   )
   const [loading, setLoading] = useState(false)
+
+  // Search states
+  const [searchFilters, setSearchFilters] = useState({
+    query: '',
+    region: '',
+    personId: '',
+    sortBy: 'newest' as 'newest' | 'oldest' | 'views' | 'likes',
+  })
+  const [isSearching, setIsSearching] = useState(false)
+
+  // Search videos
+  const performSearch = async (pageNum = 1, append = false) => {
+    setIsSearching(true)
+    try {
+      const params = new URLSearchParams()
+      if (searchFilters.query) params.append('q', searchFilters.query)
+      if (searchFilters.region) params.append('region', searchFilters.region)
+      if (searchFilters.personId) params.append('personId', searchFilters.personId)
+      params.append('sortBy', searchFilters.sortBy)
+      params.append('page', pageNum.toString())
+      params.append('limit', '20')
+
+      const response = await fetch(`/api/v1/search?${params}`)
+      const data = await response.json()
+
+      if (data.data) {
+        if (append) {
+          setVideoList((prev) => [...prev, ...data.data])
+        } else {
+          setVideoList(data.data)
+        }
+        setPage(pageNum)
+        setHasMore(data.meta && pageNum < data.meta.lastPage)
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const observerRef = useRef<HTMLDivElement>(null)
@@ -182,8 +226,9 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    // Mark as mounted after initial render to prevent hydration mismatches
     setIsMounted(true)
+    // Initial search load
+    performSearch(1, false)
   }, [])
 
   useEffect(() => {
@@ -191,8 +236,8 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          loadMoreVideos()
+        if (entries[0].isIntersecting && hasMore && !loading && !isSearching) {
+          performSearch(page + 1, true)
         }
       },
       { threshold: 0.1 }
@@ -326,6 +371,16 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
           </div>
         </nav>
 
+        {/* Search Bar */}
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-0">
+          <SearchBar
+            filters={searchFilters}
+            onChange={setSearchFilters}
+            onSearch={() => performSearch(1, false)}
+            regions={UPLOAD_REGIONS}
+          />
+        </div>
+
         {/* Video Grid */}
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           {videoList.length === 0 ? (
@@ -333,8 +388,8 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
               <div className="text-6xl mb-4">🎭</div>
               <h2 className="text-xl font-bold text-black mb-2">Aucune video</h2>
               <p className="text-gray-600 mb-4">Soyez le premier a upload un meme!</p>
-              <Link href="/upload" className="btn-neo-primary">
-                Upload Video
+              <Link href="/upload" className="btn-neo btn-neo-primary text-sm px-4 py-2">
+                📤 Upload
               </Link>
             </div>
           ) : (
@@ -507,7 +562,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
                       disabled={processing || !selectedFile}
                       className="btn-neo btn-neo-primary w-full disabled:opacity-50"
                     >
-                      {processing ? 'Upload en cours...' : '📤 Upload Video'}
+                      {processing ? 'Upload en cours...' : '📤 Upload'}
                     </button>
                   </div>
                 </form>

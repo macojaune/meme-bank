@@ -1,5 +1,23 @@
 import { Head, router, Link } from '@inertiajs/react'
 import { useState } from 'react'
+import VideoModal from '../components/video_modal'
+
+interface Video {
+  id: string
+  title: string
+  description: string | null
+  filePath: string
+  thumbnailPath: string | null
+  durationSeconds: number | null
+  isPublished: boolean
+  region: string | null
+  viewCount: number
+  likeCount: number
+  createdAt: string
+  userId: string
+  persons: Array<{ id: string; name: string }>
+  transcription: string | null
+}
 
 interface DashboardProps {
   auth: {
@@ -15,10 +33,12 @@ interface DashboardProps {
     views: number
     likes: number
   }
+  videos: Video[]
 }
 
-export default function Dashboard({ auth, stats }: DashboardProps) {
+export default function Dashboard({ auth, stats, videos }: DashboardProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
 
   const handleLogout = () => {
     setIsLoggingOut(true)
@@ -29,6 +49,10 @@ export default function Dashboard({ auth, stats }: DashboardProps) {
         onFinish: () => setIsLoggingOut(false),
       }
     )
+  }
+
+  const handleVideoClick = (video: Video) => {
+    setSelectedVideo(video)
   }
 
   return (
@@ -103,6 +127,103 @@ export default function Dashboard({ auth, stats }: DashboardProps) {
             </Link>
           </div>
         </div>
+
+        {/* My Videos Section */}
+        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-black text-text uppercase tracking-tight mb-6">
+            Mes vidéos
+          </h2>
+          {videos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {videos.map((video) => (
+                <div
+                  key={video.id}
+                  className="card-neo overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handleVideoClick(video)}
+                >
+                  {/* Thumbnail */}
+                  <div className="aspect-video bg-gray-100 border-b-2 border-black relative">
+                    {video.thumbnailPath ? (
+                      <img
+                        src={video.thumbnailPath}
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-warm">
+                        <span className="text-4xl">🎬</span>
+                      </div>
+                    )}
+                    {!video.isPublished && (
+                      <span className="absolute top-2 right-2 px-2 py-1 bg-yellow-400 text-black text-xs font-bold">
+                        PENDING
+                      </span>
+                    )}
+                    {video.isPublished && (
+                      <span className="absolute top-2 right-2 px-2 py-1 bg-green-400 text-black text-xs font-bold">
+                        PUBLIÉ
+                      </span>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-4">
+                    <h3 className="font-bold text-lg mb-2 truncate">{video.title}</h3>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {video.persons.map((p) => (
+                        <span
+                          key={p.id}
+                          className="text-xs px-2 py-1 bg-secondary-100 border border-black"
+                        >
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>{video.viewCount} vues</span>
+                      <span>{video.likeCount} likes</span>
+                    </div>
+                    {/* Manual publish button for pending videos */}
+                    {!video.isPublished && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.post(
+                            `/videos/${video.id}/publish`,
+                            {},
+                            {
+                              onSuccess: () => router.reload(),
+                            }
+                          )
+                        }}
+                        className="mt-2 w-full btn-neo btn-neo-primary text-sm py-1"
+                      >
+                        🚀 Publier maintenant
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">
+              Aucune vidéo pour le moment.{' '}
+              <Link href="/upload" className="text-primary-600 underline">
+                Uploader une vidéo
+              </Link>
+            </p>
+          )}
+        </div>
+
+        <VideoModal
+          video={selectedVideo}
+          userId={auth.user.id.toString()}
+          onClose={() => setSelectedVideo(null)}
+          onDelete={() => {
+            setSelectedVideo(null)
+            router.reload()
+          }}
+        />
 
         {/* Footer */}
         <footer className="mt-16 p-4 border-t-2 border-black bg-white text-center">
