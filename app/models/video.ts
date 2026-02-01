@@ -19,6 +19,7 @@ import Comment from './comment.js'
 import Report from './report.js'
 import Playlist from './playlist.js'
 import VideoTranscription from './video_transcription.js'
+import Person from './person.js'
 import type { HasOne, ManyToMany, HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
 
 export default class Video extends BaseModel {
@@ -114,4 +115,10 @@ export default class Video extends BaseModel {
 
   @hasMany(() => VideoTranscription)
   declare transcriptions: HasMany<typeof VideoTranscription>
+
+  @manyToMany(() => Person, {
+    pivotTable: 'video_persons',
+    pivotColumns: ['notes'],
+  })
+  declare persons: ManyToMany<typeof Person>
 }

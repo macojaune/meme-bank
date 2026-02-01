@@ -81,10 +81,31 @@ router.group(() => {
 router
   .group(() => {
     // Get published videos with pagination
-    router.get('/videos', '#controllers/video_upload_controller.publicIndex')
+    router.get('/videos', '#controllers/video_controller.publicIndex')
 
     // Get video details (for public viewing)
-    router.get('/videos/:id', '#controllers/video_upload_controller.show')
+    router.get('/videos/:id', '#controllers/video_controller.show')
+
+    // Transcription routes
+    router.get('/videos/:videoId/transcription', '#controllers/transcriptions_controller.show')
+    router.get(
+      '/videos/:videoId/transcription/history',
+      '#controllers/transcriptions_controller.history'
+    )
+    router.post(
+      '/videos/:videoId/transcription/correct',
+      '#controllers/transcriptions_controller.correct'
+    )
+
+    // Person routes
+    router.get('/persons/search', '#controllers/persons_controller.search')
+    router.get('/videos/:videoId/persons', '#controllers/persons_controller.index')
+    router.post('/videos/:videoId/persons', '#controllers/persons_controller.sync')
+    router.delete('/videos/:videoId/persons', '#controllers/persons_controller.detach')
+
+    // Search routes
+    router.get('/search', '#controllers/search_controller.search')
+    router.get('/persons/:personId/videos', '#controllers/search_controller.byPerson')
   })
   .prefix('/api/v1')
 
@@ -186,12 +207,12 @@ router
     })
 
     // Video upload routes
-    router.post('/videos/upload', '#controllers/video_upload_controller.upload')
-    router.get('/videos', '#controllers/video_upload_controller.index')
-    router.get('/videos/:id', '#controllers/video_upload_controller.show')
-    router.post('/videos/:id/publish', '#controllers/video_upload_controller.publish')
-    router.get('/videos/:id/url', '#controllers/video_upload_controller.getSignedUrl')
-    router.delete('/videos/:id', '#controllers/video_upload_controller.delete')
-    router.post('/videos/:id/like', '#controllers/video_upload_controller.toggleLike')
+    router.post('/videos/upload', '#controllers/video_controller.upload')
+    router.get('/videos', '#controllers/video_controller.index')
+    router.get('/videos/:id', '#controllers/video_controller.show')
+    router.post('/videos/:id/publish', '#controllers/video_controller.publish')
+    router.get('/videos/:id/url', '#controllers/video_controller.getSignedUrl')
+    router.delete('/videos/:id', '#controllers/video_controller.delete')
+    router.post('/videos/:id/like', '#controllers/video_controller.toggleLike')
   })
   .use(middleware.auth())

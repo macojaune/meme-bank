@@ -1,5 +1,6 @@
 import { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
+import logger from '@adonisjs/core/services/logger'
 import Video from '#models/video'
 import VideoTranscription, { TranscriptionStatus } from '#models/video_transcription'
 
@@ -92,15 +93,13 @@ export default class TranscriptionsController {
         correctedAt: DateTime.now(),
       })
 
-      return response.created({
-        message: 'Correction submitted successfully',
-        data: {
-          id: newTranscription.id,
-          revisionNumber: newTranscription.revisionNumber,
-          pointsAwarded: 10,
-        },
-      })
+      // Redirect back for Inertia (stay in modal, page will reload via router.reload())
+      return response.redirect().back()
     } catch (error) {
+      logger.error(
+        { error: error instanceof Error ? error.message : 'Unknown error' },
+        'Failed to submit correction'
+      )
       return response.internalServerError({
         error: 'Failed to submit correction',
         message: error instanceof Error ? error.message : 'Unknown error',

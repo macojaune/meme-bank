@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Video from '#models/video'
+import Person from '#models/person'
 import Like from '#models/like'
 import drive from '@adonisjs/drive/services/main'
 import QueueService from '#services/queue_service'
@@ -103,6 +104,38 @@ export default class VideoUploadController {
         likeCount: 0,
         region: validatedRegion,
       })
+
+      // Attach persons to video if provided
+      const personsData = request.input('persons')
+      if (personsData && Array.isArray(personsData) && personsData.length > 0) {
+        const personIds: string[] = []
+
+        for (const personData of personsData) {
+          let person: Person | null = null
+
+          if (personData.id && personData.id.startsWith('temp-')) {
+            // Create new person for temporary IDs
+            person = await Person.create({
+              name: personData.name,
+              socialMediaHandle: personData.socialMediaHandle || null,
+              platform: personData.platform || null,
+              bio: null,
+            })
+          } else if (personData.id) {
+            // Find existing person by ID
+            person = await Person.find(personData.id)
+          }
+
+          if (person) {
+            personIds.push(person.id)
+          }
+        }
+
+        // Attach all persons to the video
+        if (personIds.length > 0) {
+          await video.related('persons').attach(personIds)
+        }
+      }
 
       // Queue transcription job after successful upload
       try {

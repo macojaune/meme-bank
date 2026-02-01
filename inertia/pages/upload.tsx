@@ -1,5 +1,6 @@
 import { Head, useForm, router } from '@inertiajs/react'
 import { useState, useRef, useCallback } from 'react'
+import PersonTagInput from '../components/person_tag_input'
 
 const REGIONS = [
   { id: 'guadeloupe', name: 'Guadeloupe' },
@@ -18,6 +19,12 @@ export default function Upload() {
     description: '',
     region: '',
     video: null,
+    persons: [] as Array<{
+      id: string
+      name: string
+      socialMediaHandle: string | null
+      platform: string | null
+    }>,
   })
 
   const handleDrag = useCallback((e) => {
@@ -230,6 +237,17 @@ export default function Upload() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-text mb-2 uppercase">
+                  Personnes présentes (optionnel)
+                </label>
+                <PersonTagInput
+                  selectedPersons={data.persons}
+                  onChange={(persons) => setData('persons', persons)}
+                  placeholder="Ajoutez des personnes (ex: Naima, chanteuse...)"
+                />
               </div>
             </div>
 

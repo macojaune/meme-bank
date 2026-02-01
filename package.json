@@ -79,6 +79,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@types/uuid": "^10.0.0",
     "@vinejs/vine": "^3.0.1",
+    "axios": "^1.13.4",
     "bullmq": "^5.67.2",
     "edge.js": "^6.2.1",
     "ioredis": "^5.9.2",

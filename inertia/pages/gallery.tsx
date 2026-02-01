@@ -1,5 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import VideoCard from '../components/video_card'
+import VideoModal from '../components/video_modal'
 
 const UPLOAD_REGIONS = [
   { id: 'guadeloupe', name: 'Guadeloupe' },
@@ -339,71 +341,14 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {videoList.map((video) => (
-                  <button
+                  <VideoCard
                     key={video.id}
-                    type="button"
-                    className="card-neo-hover text-left w-full overflow-hidden"
-                    onClick={() => handleVideoClick(video)}
-                  >
-                    {/* Thumbnail */}
-                    <div className="aspect-video bg-gray-100 border-b-2 border-black relative overflow-hidden">
-                      {video.thumbnailPath ? (
-                        <img
-                          src={video.thumbnailPath}
-                          alt={video.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-warm p-4">
-                          <span className="text-5xl mb-2">🎬</span>
-                          <p className="text-sm font-bold text-center text-black uppercase line-clamp-2">
-                            {video.title}
-                          </p>
-                        </div>
-                      )}
-                      {/* Play button overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
-                        <div className="w-16 h-16 bg-primary-400 flex items-center justify-center border-2 border-black shadow-neo">
-                          <span className="text-2xl text-black">▶</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Video Info */}
-                    <div className="p-4">
-                      <h3 className="font-black text-black truncate mb-2 uppercase">
-                        {video.title}
-                      </h3>
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="badge-neo bg-secondary-300">
-                          {getRegionDisplay(video.region)}
-                        </span>
-                        {!video.isPublished && (
-                          <span className="badge-neo bg-yellow-400 text-black font-bold">
-                            PENDING
-                          </span>
-                        )}
-                        <span className="font-medium text-gray-600">
-                          {formatDate(video.createdAt)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm font-bold text-gray-600">
-                        <span>{video.viewCount || 0} vues</span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleLike(video.id, e)}
-                          className={`flex items-center gap-1 px-2 py-1 border-2 border-black ${
-                            userLikes.has(String(video.id))
-                              ? 'bg-red-500 text-white'
-                              : 'bg-white text-black'
-                          }`}
-                        >
-                          <span>{userLikes.has(String(video.id)) ? '❤️' : '🤍'}</span>
-                          <span>{video.likeCount || 0}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </button>
+                    video={video}
+                    isLiked={userLikes.has(String(video.id))}
+                    userId={userId}
+                    onVideoClick={handleVideoClick}
+                    onLikeClick={handleLike}
+                  />
                 ))}
               </div>
 
@@ -425,52 +370,12 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
           )}
         </div>
 
-        {/* Video Player Modal */}
-        {selectedVideo && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-            <div className="card-neo max-w-4xl w-full bg-white relative">
-              <button
-                type="button"
-                onClick={() => setSelectedVideo(null)}
-                className="absolute -top-4 -right-4 btn-neo-brick w-10 h-10 flex items-center justify-center z-[60]"
-              >
-                ✕
-              </button>
-              <div className="aspect-video bg-black border-b-2 border-black">
-                <video
-                  src={getVideoUrl(selectedVideo.id)}
-                  controls
-                  className="w-full h-full"
-                  preload="metadata"
-                >
-                  <track kind="captions" />
-                </video>
-              </div>
-              <div className="p-4">
-                <h2 className="text-xl font-black text-black uppercase mb-2">
-                  {selectedVideo.title}
-                </h2>
-                <p className="text-gray-600 mb-3">{selectedVideo.description}</p>
-                <div className="flex items-center gap-4 text-sm mb-4">
-                  <span className="badge-neo bg-secondary-300">
-                    {getRegionDisplay(selectedVideo.region)}
-                  </span>
-                  <span className="text-gray-600">{formatDate(selectedVideo.createdAt)}</span>
-                  <span className="font-bold">{selectedVideo.viewCount || 0} vues</span>
-                </div>
-                {selectedVideo.userId === userId && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteVideo(selectedVideo.id)}
-                    className="btn-neo bg-red-500 text-black border-black text-sm px-4 py-2 font-bold uppercase"
-                  >
-                    Supprimer
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <VideoModal
+          video={selectedVideo}
+          userId={userId}
+          onClose={() => setSelectedVideo(null)}
+          onDelete={handleDeleteVideo}
+        />
 
         {/* Upload Modal */}
         {showUploadModal && (
