@@ -3,6 +3,7 @@ import type { CommandOptions } from '@adonisjs/core/types/ace'
 import QueueService from '#services/queue_service'
 import { createTranscriptionWorker } from '#jobs/transcription_job'
 import { createEmbeddingWorker } from '#jobs/embedding_job'
+import { processThumbnailJob } from '#jobs/thumbnail_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -36,9 +37,16 @@ export default class QueueWork extends BaseCommand {
         workers.push(embeddingWorker)
       }
 
+      if (queueName === 'all' || queueName === 'videoProcessing') {
+        this.logger.info('Starting video processing (thumbnail) worker...')
+        const queueService = new QueueService()
+        const thumbnailWorker = queueService.createWorker('videoProcessing', processThumbnailJob)
+        workers.push(thumbnailWorker)
+      }
+
       if (workers.length === 0) {
         this.logger.error(`Unknown queue: ${queueName}`)
-        this.logger.info('Available queues: transcription, embedding, all')
+        this.logger.info('Available queues: transcription, embedding, videoProcessing, all')
         return
       }
 

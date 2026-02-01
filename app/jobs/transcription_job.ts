@@ -84,6 +84,18 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
       console.error('[Transcription] Failed to queue embedding job:', queueError)
     }
 
+    // Queue thumbnail generation job
+    try {
+      const queueService = new QueueService()
+      await queueService.addJob(queueConfig.queues.videoProcessing.name, {
+        videoId: videoId,
+        filePath: filePath,
+      })
+      console.log(`[Transcription] Thumbnail job queued for video ${videoId}`)
+    } catch (queueError) {
+      console.error('[Transcription] Failed to queue thumbnail job:', queueError)
+    }
+
     return {
       success: true,
       data: {

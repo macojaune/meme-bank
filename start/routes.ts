@@ -192,6 +192,7 @@ router
         ...video.toJSON(),
         filePath: getPublicUrl(video.filePath),
         thumbnailPath: video.thumbnailPath ? getPublicUrl(video.thumbnailPath) : null,
+        isPublished: video.isPublished,
       }))
 
       return inertia.render('gallery', {

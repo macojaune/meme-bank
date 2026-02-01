@@ -86,6 +86,7 @@ export default class SearchController {
         durationSeconds: video.durationSeconds,
         viewCount: video.viewCount,
         likeCount: video.likeCount,
+        isPublished: video.isPublished,
         region: video.region,
         createdAt: video.createdAt,
         userId: video.userId,
