@@ -1,6 +1,8 @@
 import { Head, router, Link } from '@inertiajs/react'
 import { useState } from 'react'
 import VideoModal from '../components/video_modal'
+import PointsToast from '../components/points_toast'
+import Navigation from '../components/navigation'
 
 /**
  * Get the public URL for a thumbnail from MinIO
@@ -56,24 +58,13 @@ interface DashboardProps {
     videos: number
     views: number
     likes: number
+    points: number
   }
   videos: Video[]
 }
 
 export default function Dashboard({ auth, stats, videos }: DashboardProps) {
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
-
-  const handleLogout = () => {
-    setIsLoggingOut(true)
-    router.post(
-      '/logout',
-      {},
-      {
-        onFinish: () => setIsLoggingOut(false),
-      }
-    )
-  }
 
   const handleVideoClick = (video: Video) => {
     setSelectedVideo(video)
@@ -84,24 +75,7 @@ export default function Dashboard({ auth, stats, videos }: DashboardProps) {
       <Head title="Dashboard" />
       <div className="min-h-screen bg-bg">
         {/* Navigation */}
-        <nav className="border-b-2 border-black bg-white px-4 py-3 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <Link href="/" className="text-2xl font-black uppercase tracking-tight">
-              MEME BANK
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="font-bold text-text">{auth.user.fullName.toUpperCase()}</span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="btn-neo-brick text-sm px-3 py-2"
-              >
-                {isLoggingOut ? '...' : '✕'}
-              </button>
-            </div>
-          </div>
-        </nav>
+        <Navigation user={{ fullName: auth.user.fullName }} isLoggedIn={true} />
 
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -115,7 +89,7 @@ export default function Dashboard({ auth, stats, videos }: DashboardProps) {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="card-neo text-center">
               <div className="text-4xl mb-2">📹</div>
               <h3 className="font-bold text-text uppercase text-sm mb-1">Videos</h3>
@@ -133,22 +107,12 @@ export default function Dashboard({ auth, stats, videos }: DashboardProps) {
               <h3 className="font-bold text-text uppercase text-sm mb-1">Likes</h3>
               <p className="text-3xl font-black text-text">{stats.likes}</p>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/upload"
-              className="btn-neo btn-neo-primary text-center py-4 text-lg no-underline"
-            >
-              📤 Upload Video
-            </Link>
-            <Link
-              href="/gallery"
-              className="btn-neo btn-neo-secondary text-center py-4 text-lg no-underline"
-            >
-              🎬 Voir Gallery
-            </Link>
+            <div className="card-neo text-center border-2 border-yellow-400">
+              <div className="text-4xl mb-2">🏆</div>
+              <h3 className="font-bold text-text uppercase text-sm mb-1">Points</h3>
+              <p className="text-3xl font-black text-yellow-600">{stats.points}</p>
+            </div>
           </div>
         </div>
 
@@ -267,6 +231,8 @@ export default function Dashboard({ auth, stats, videos }: DashboardProps) {
         <footer className="mt-16 p-4 border-t-2 border-black bg-white text-center">
           <p className="text-sm font-bold text-text-muted uppercase">Caribbean Meme Bank v1.0</p>
         </footer>
+
+        <PointsToast userId={auth.user.id.toString()} />
       </div>
     </>
   )

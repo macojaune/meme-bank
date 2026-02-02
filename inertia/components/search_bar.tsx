@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
 
-interface SearchFilters {
+export interface PersonFilter {
+  id: string
+  name: string
+}
+
+export interface SearchFilters {
   query: string
   region: string
-  personId: string
+  persons: PersonFilter[]
   sortBy: 'newest' | 'oldest' | 'views' | 'likes'
 }
 
@@ -40,6 +45,7 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
   )
   const [showPersonSuggestions, setShowPersonSuggestions] = useState(false)
   const [personSearch, setPersonSearch] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
 
   // Debounce the query for dynamic search (500ms delay for stability)
   const { value: debouncedQuery, isPending: isTyping } = useDebounce(filters.query, 500)
@@ -57,6 +63,7 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
   useEffect(() => {
     if (personSearch.trim().length < 2) {
       setPersonSuggestions([])
+      setHasSearched(false)
       return
     }
 
@@ -64,6 +71,7 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
       const response = await fetch(`/api/v1/persons/search?q=${encodeURIComponent(personSearch)}`)
       const data = await response.json()
       setPersonSuggestions(data.data || [])
+      setHasSearched(true)
     }
 
     const timeout = setTimeout(fetchPersons, 300)
@@ -79,13 +87,34 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
     const resetFilters: SearchFilters = {
       query: '',
       region: '',
-      personId: '',
+      persons: [],
       sortBy: 'newest',
     }
     onChange(resetFilters)
     setPersonSearch('')
     // Trigger search immediately with cleared filters
     onSearch(resetFilters)
+  }
+
+  const addPerson = (person: { id: string; name: string }) => {
+    // Check if person is already in the list
+    if (filters.persons.some((p) => p.id === person.id)) {
+      return
+    }
+
+    const newPersons = [...filters.persons, { id: person.id, name: person.name }]
+    onChange({ ...filters, persons: newPersons })
+    setPersonSearch('')
+    setShowPersonSuggestions(false)
+    // Trigger search with new filter
+    onSearch({ ...filters, persons: newPersons })
+  }
+
+  const removePerson = (personId: string) => {
+    const newPersons = filters.persons.filter((p) => p.id !== personId)
+    onChange({ ...filters, persons: newPersons })
+    // Trigger search with updated filter
+    onSearch({ ...filters, persons: newPersons })
   }
 
   return (
@@ -115,7 +144,11 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
           <label className="block text-sm font-bold uppercase mb-1">Région</label>
           <select
             value={filters.region}
-            onChange={(e) => onChange({ ...filters, region: e.target.value })}
+            onChange={(e) => {
+              const newFilters = { ...filters, region: e.target.value }
+              onChange(newFilters)
+              onSearch(newFilters)
+            }}
             className="w-full p-2 border-2 border-black focus:outline-none focus:border-primary-500"
           >
             <option value="">Toutes les régions</option>
@@ -132,7 +165,11 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
           <label className="block text-sm font-bold uppercase mb-1">Trier par</label>
           <select
             value={filters.sortBy}
-            onChange={(e) => onChange({ ...filters, sortBy: e.target.value as any })}
+            onChange={(e) => {
+              const newFilters = { ...filters, sortBy: e.target.value as any }
+              onChange(newFilters)
+              onSearch(newFilters)
+            }}
             className="w-full p-2 border-2 border-black focus:outline-none focus:border-primary-500"
           >
             <option value="newest">Plus récent</option>
@@ -145,7 +182,31 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
 
       {/* Person filter */}
       <div className="mt-4 relative">
-        <label className="block text-sm font-bold uppercase mb-1">Personne</label>
+        <label className="block text-sm font-bold uppercase mb-1">
+          Personnes {filters.persons.length > 0 && `(${filters.persons.length})`}
+        </label>
+
+        {/* Selected persons tags */}
+        {filters.persons.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {filters.persons.map((person) => (
+              <span
+                key={person.id}
+                className="px-2 py-1 bg-primary-100 border border-black text-sm font-bold flex items-center gap-1"
+              >
+                {person.name}
+                <button
+                  type="button"
+                  onClick={() => removePerson(person.id)}
+                  className="text-red-500 font-bold hover:text-red-700"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -156,21 +217,9 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
                 setShowPersonSuggestions(true)
               }}
               onFocus={() => setShowPersonSuggestions(true)}
-              placeholder="Filtrer par personne (ex: Naima)..."
+              placeholder="Ajouter une personne..."
               className="w-full p-2 border-2 border-black focus:outline-none focus:border-primary-500"
             />
-            {filters.personId && (
-              <button
-                type="button"
-                onClick={() => {
-                  onChange({ ...filters, personId: '' })
-                  setPersonSearch('')
-                }}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-red-500 font-bold"
-              >
-                ×
-              </button>
-            )}
           </div>
           <button type="submit" className="btn-neo-primary px-6 py-2 font-bold">
             🔍 Rechercher
@@ -181,28 +230,28 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
         </div>
 
         {/* Person suggestions */}
-        {showPersonSuggestions && personSuggestions.length > 0 && (
+        {showPersonSuggestions && personSearch.trim().length >= 2 && (
           <div className="absolute z-50 w-full mt-1 bg-white border-2 border-black shadow-neo max-h-48 overflow-y-auto">
-            {personSuggestions.map((person) => (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => {
-                  onChange({ ...filters, personId: person.id })
-                  setPersonSearch(person.name)
-                  setShowPersonSuggestions(false)
-                }}
-                className="w-full text-left px-3 py-2 hover:bg-primary-100 border-b border-gray-200 last:border-b-0"
-              >
-                <span className="font-bold">{person.name}</span>
-              </button>
-            ))}
+            {personSuggestions.length > 0 ? (
+              personSuggestions.map((person) => (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => addPerson(person)}
+                  className="w-full text-left px-3 py-2 hover:bg-primary-100 border-b border-gray-200 last:border-b-0"
+                >
+                  <span className="font-bold">{person.name}</span>
+                </button>
+              ))
+            ) : hasSearched ? (
+              <div className="px-3 py-2 text-gray-500 text-sm">Aucune personne trouvée</div>
+            ) : null}
           </div>
         )}
       </div>
 
       {/* Active filters display */}
-      {(filters.region || filters.personId) && (
+      {(filters.region || filters.persons.length > 0) && (
         <div className="mt-4 flex flex-wrap gap-2">
           <span className="text-sm font-bold text-gray-600">Filtres actifs:</span>
           {filters.region && (
@@ -210,21 +259,10 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
               Région: {regions.find((r) => r.id === filters.region)?.name}
               <button
                 type="button"
-                onClick={() => onChange({ ...filters, region: '' })}
-                className="ml-1 text-red-500"
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {filters.personId && personSearch && (
-            <span className="px-2 py-1 bg-primary-100 border border-black text-sm font-bold">
-              Personne: {personSearch}
-              <button
-                type="button"
                 onClick={() => {
-                  onChange({ ...filters, personId: '' })
-                  setPersonSearch('')
+                  const newFilters = { ...filters, region: '' }
+                  onChange(newFilters)
+                  onSearch(newFilters)
                 }}
                 className="ml-1 text-red-500"
               >
@@ -232,6 +270,21 @@ export default function SearchBar({ filters, onChange, onSearch, regions }: Sear
               </button>
             </span>
           )}
+          {filters.persons.map((person) => (
+            <span
+              key={person.id}
+              className="px-2 py-1 bg-primary-100 border border-black text-sm font-bold"
+            >
+              {person.name}
+              <button
+                type="button"
+                onClick={() => removePerson(person.id)}
+                className="ml-1 text-red-500"
+              >
+                ×
+              </button>
+            </span>
+          ))}
         </div>
       )}
     </form>

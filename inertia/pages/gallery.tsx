@@ -2,7 +2,10 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import VideoCard from '../components/video_card.js'
 import VideoModal from '../components/video_modal.js'
-import SearchBar from '../components/search_bar.js'
+import SearchBar, { type SearchFilters } from '../components/search_bar.js'
+import PointsToast from '../components/points_toast'
+import VideoUploadForm from '../components/video_upload_form.js'
+import Navigation from '../components/navigation'
 
 const UPLOAD_REGIONS = [
   { id: 'guadeloupe', name: 'Guadeloupe' },
@@ -11,6 +14,12 @@ const UPLOAD_REGIONS = [
   { id: 'reunion', name: 'La Réunion' },
   { id: 'mayotte', name: 'Mayotte' },
 ]
+
+interface Person {
+  id: string
+  name: string
+  socialMediaHandle: string | null
+}
 
 interface Video {
   id: string
@@ -25,6 +34,7 @@ interface Video {
   likeCount: number
   userId: string
   isPublished: boolean
+  persons?: Person[]
 }
 
 interface VideosResponse {
@@ -45,13 +55,11 @@ interface GalleryProps {
   videos: VideosResponse | null
   userId: string
   likedVideoIds: string[]
-}
-
-interface Person {
-  id: string
-  name: string
-  socialMediaHandle: string | null
-  platform: string | null
+  auth: {
+    user: {
+      fullName: string
+    }
+  }
 }
 
 // Helper to get video stream URL
@@ -80,7 +88,7 @@ const handleDeleteVideo = (videoId: string) => {
   })
 }
 
-export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps) {
+export default function Gallery({ videos, userId, likedVideoIds, auth }: GalleryProps) {
   const [userLikes, setUserLikes] = useState<Set<string>>(new Set(likedVideoIds))
   // Ensure videos are only loaded once on mount to prevent hydration issues
   const [videoList, setVideoList] = useState<Video[]>(() => {
@@ -94,11 +102,11 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
   const [loading, setLoading] = useState(false)
 
   // Search states
-  const [searchFilters, setSearchFilters] = useState({
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     query: '',
     region: '',
-    personId: '',
-    sortBy: 'newest' as 'newest' | 'oldest' | 'views' | 'likes',
+    persons: [],
+    sortBy: 'newest',
   })
   const [isSearching, setIsSearching] = useState(false)
 
@@ -106,7 +114,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Search videos
-  const performSearch = async (pageNum = 1, append = false) => {
+  const performSearch = async (pageNum = 1, append = false, customFilters?: SearchFilters) => {
     // Cancel previous request if exists
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -115,13 +123,18 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     // Create new abort controller
     abortControllerRef.current = new AbortController()
 
+    // Use custom filters if provided, otherwise use current state
+    const filters = customFilters || searchFilters
+
     setIsSearching(true)
     try {
       const params = new URLSearchParams()
-      if (searchFilters.query) params.append('q', searchFilters.query)
-      if (searchFilters.region) params.append('region', searchFilters.region)
-      if (searchFilters.personId) params.append('personId', searchFilters.personId)
-      params.append('sortBy', searchFilters.sortBy)
+      if (filters.query) params.append('q', filters.query)
+      if (filters.region) params.append('region', filters.region)
+      for (const person of filters.persons) {
+        params.append('personId', person.id)
+      }
+      params.append('sortBy', filters.sortBy)
       params.append('page', pageNum.toString())
       params.append('limit', '20')
 
@@ -172,41 +185,34 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     video: null as File | null,
   })
 
-  // Handle person click - navigate to gallery filtered by person
-  const handlePersonClick = (person: Person) => {
+  // Update URL based on current filters
+  const updateUrlWithFilters = (filters: SearchFilters) => {
     const params = new URLSearchParams()
-    params.append('personId', person.id)
-    params.append('personName', person.name)
+    if (filters.query) params.append('q', filters.query)
+    if (filters.region) params.append('region', filters.region)
+    for (const person of filters.persons) {
+      params.append('personId', person.id)
+      params.append('personName', person.name)
+    }
+    if (filters.sortBy !== 'newest') params.append('sortBy', filters.sortBy)
 
-    // Update URL without page reload
-    window.history.pushState({}, '', `/gallery?${params}`)
-
-    // Update filters and search
-    setSearchFilters({
-      query: '',
-      region: '',
-      personId: person.id,
-      sortBy: 'newest',
-    })
-    setActivePersonName(person.name)
-    setVideoList([])
-    setPage(1)
-    performSearch(1, false)
+    const url = params.toString() ? `/gallery?${params}` : '/gallery'
+    window.history.pushState({}, '', url)
   }
 
-  // Clear person filter
-  const clearPersonFilter = () => {
-    window.history.pushState({}, '', '/gallery')
-    setSearchFilters({
-      query: '',
-      region: '',
-      personId: '',
-      sortBy: 'newest',
-    })
-    setActivePersonName(null)
+  // Handle person click - add person to filters
+  const handlePersonClick = (person: Person) => {
+    // Replace current selection with clicked person (don't add to list)
+    const newFilters = {
+      ...searchFilters,
+      persons: [{ id: person.id, name: person.name }],
+    }
+
+    updateUrlWithFilters(newFilters)
+    setSearchFilters(newFilters)
     setVideoList([])
     setPage(1)
-    performSearch(1, false)
+    performSearch(1, false, newFilters)
   }
 
   // Handle video click - increment view count and open modal
@@ -234,6 +240,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
       const videoIdStr = String(videoId)
       const isLiked = userLikes.has(videoIdStr)
 
+      // Optimistic update
       setUserLikes((prev: Set<string>) => {
         const newSet = new Set(prev)
         if (isLiked) {
@@ -253,14 +260,55 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
         })
       )
 
-      router.post(
-        `/videos/${videoId}/like`,
-        {},
-        {
-          preserveState: false,
-          onError: (errors) => console.error('Like error:', errors),
+      // API call using fetch (not Inertia router) to avoid page reload
+      try {
+        const response = await fetch(`/api/v1/videos/${videoId}/like`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'same-origin',
+        })
+
+        if (!response.ok) {
+          throw new Error('Like failed')
         }
-      )
+
+        const data = await response.json()
+
+        // Update with server response if different
+        if (data.likeCount !== undefined) {
+          setVideoList((prev: Video[]) =>
+            prev.map((v: Video) => {
+              if (v.id === videoId) {
+                return { ...v, likeCount: data.likeCount }
+              }
+              return v
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Like error:', error)
+        // Revert optimistic update on error
+        setUserLikes((prev: Set<string>) => {
+          const newSet = new Set(prev)
+          if (isLiked) {
+            newSet.add(videoIdStr)
+          } else {
+            newSet.delete(videoIdStr)
+          }
+          return newSet
+        })
+
+        setVideoList((prev: Video[]) =>
+          prev.map((v: Video) => {
+            if (v.id === videoId) {
+              return { ...v, likeCount: isLiked ? v.likeCount + 1 : v.likeCount - 1 }
+            }
+            return v
+          })
+        )
+      }
     },
     [userLikes]
   )
@@ -291,7 +339,6 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
   // Infinite scroll observer - only enable after initial mount to prevent hydration issues
   const [isMounted, setIsMounted] = useState(false)
-  const [activePersonName, setActivePersonName] = useState<string | null>(null)
 
   // Read URL params on mount and update filters
   useEffect(() => {
@@ -299,22 +346,30 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
 
     // Parse URL query params
     const urlParams = new URLSearchParams(window.location.search)
-    const personId = urlParams.get('personId')
-    const personName = urlParams.get('personName')
+    const personIds = urlParams.getAll('personId')
+    const personNames = urlParams.getAll('personName')
     const region = urlParams.get('region')
     const query = urlParams.get('q')
+    const sortBy = (urlParams.get('sortBy') as SearchFilters['sortBy']) || 'newest'
+
+    // Build persons array from URL params
+    const persons: { id: string; name: string }[] = []
+    for (let i = 0; i < personIds.length; i++) {
+      if (personIds[i]) {
+        persons.push({
+          id: personIds[i],
+          name: personNames[i] || 'Personne',
+        })
+      }
+    }
 
     // Update filters from URL
-    setSearchFilters((prev) => ({
-      ...prev,
-      personId: personId || '',
-      region: region || '',
+    setSearchFilters({
       query: query || '',
-    }))
-
-    if (personName) {
-      setActivePersonName(personName)
-    }
+      region: region || '',
+      persons,
+      sortBy,
+    })
 
     // Initial search load
     performSearch(1, false)
@@ -484,39 +539,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
     <>
       <Head title="Gallery" />
       <div className="min-h-screen bg-bg">
-        {/* Navigation */}
-        <nav className="border-b-2 border-black bg-white p-4 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-black text-black uppercase tracking-tight">Galerie</h1>
-              {activePersonName && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">/</span>
-                  <span className="badge-neo bg-secondary-300 text-sm">👤 {activePersonName}</span>
-                  <button
-                    type="button"
-                    onClick={clearPersonFilter}
-                    className="text-xs text-gray-500 hover:text-black underline"
-                  >
-                    ✕ Retirer le filtre
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Link href="/dashboard" className="btn-neo btn-neo-secondary text-sm px-4 py-2">
-                Dashboard
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowUploadModal(true)}
-                className="btn-neo btn-neo-primary text-sm px-4 py-2"
-              >
-                Upload
-              </button>
-            </div>
-          </div>
-        </nav>
+        <Navigation user={{ fullName: auth.user.fullName }} isLoggedIn={true} />
 
         {/* Search Bar */}
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-0">
@@ -524,10 +547,12 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
             filters={searchFilters}
             onChange={setSearchFilters}
             onSearch={(filters) => {
+              const filtersToUse = filters || searchFilters
               if (filters) {
                 setSearchFilters(filters)
               }
-              performSearch(1, false)
+              updateUrlWithFilters(filtersToUse)
+              performSearch(1, false, filtersToUse)
             }}
             regions={UPLOAD_REGIONS}
           />
@@ -563,6 +588,7 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
                     userId={userId}
                     onVideoClick={handleVideoClick}
                     onLikeClick={handleLike}
+                    onPersonClick={handlePersonClick}
                   />
                 ))}
               </div>
@@ -605,129 +631,22 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
                 ✕
               </button>
 
-              <div className="p-6">
-                <h2 className="text-2xl font-black uppercase mb-6">Upload Video</h2>
-
-                {/* Drop Zone */}
-                <div
-                  className={`card-neo p-6 mb-6 transition-all ${dragActive ? 'border-primary-400 bg-primary-100' : ''}`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/mp4,video/webm,video/ogg,video/avi"
-                    onChange={handleFileInput}
-                    className="hidden"
-                  />
-
-                  {!selectedFile ? (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="cursor-pointer text-center py-8 border-2 border-dashed border-black rounded hover:border-primary-400 transition-colors"
-                    >
-                      <div className="text-5xl mb-3">📹</div>
-                      <p className="font-bold">Glissez-deposez votre video ici</p>
-                      <p className="text-sm text-gray-600 mt-2">ou cliquez pour selectionner</p>
-                      <p className="text-xs text-gray-500 mt-1">MP4, WebM, OGG, AVI - Max 10MB</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border-2 border-black p-4">
-                      <div className="flex items-center gap-4">
-                        <span className="text-3xl">🎬</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold truncate">{selectedFile.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {formatFileSize(selectedFile.size)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedFile(null)
-                            setData('video', null)
-                          }}
-                          className="btn-neo-brick text-sm px-2 py-1"
-                          disabled={processing}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {processing && (
-                        <div className="mt-4">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="font-bold">Upload en cours...</span>
-                            <span className="font-black">{Math.round(uploadProgress * 100)}%</span>
-                          </div>
-                          <div className="w-full bg-white border-2 border-black h-4">
-                            <div
-                              className="bg-primary-400 h-full border-r-2 border-black transition-all"
-                              style={{ width: `${uploadProgress * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleUploadSubmit}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block font-bold uppercase text-sm mb-2">Titre *</label>
-                      <input
-                        type="text"
-                        value={data.title}
-                        onChange={(e) => setData('title', e.target.value)}
-                        className="input-neo"
-                        placeholder="Titre de la video"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-sm mb-2">Description</label>
-                      <textarea
-                        value={data.description}
-                        onChange={(e) => setData('description', e.target.value)}
-                        className="input-neo min-h-[80px] resize-none"
-                        placeholder="Description optionnelle"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-sm mb-2">Region</label>
-                      <select
-                        value={data.region}
-                        onChange={(e) => setData('region', e.target.value)}
-                        className="input-neo"
-                      >
-                        <option value="">Selectionnez une region</option>
-                        {UPLOAD_REGIONS.map((region) => (
-                          <option key={region.id} value={region.id}>
-                            {region.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <button
-                      type="submit"
-                      disabled={processing || !selectedFile}
-                      className="btn-neo btn-neo-primary w-full disabled:opacity-50"
-                    >
-                      {processing ? 'Upload en cours...' : '📤 Upload'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+              <VideoUploadForm
+                onUpload={(formData) => {
+                  fetch('/videos/upload', {
+                    method: 'POST',
+                    body: formData,
+                  }).then((response) => {
+                    if (response.ok) {
+                      setShowUploadModal(false)
+                      // Refresh the video list
+                      performSearch(1, false)
+                    }
+                  })
+                }}
+                onCancel={() => setShowUploadModal(false)}
+                isProcessing={false}
+              />
             </div>
           </div>
         )}
@@ -736,6 +655,8 @@ export default function Gallery({ videos, userId, likedVideoIds }: GalleryProps)
         <footer className="mt-16 p-4 border-t-3 border-black bg-white text-center">
           <p className="text-sm font-bold text-gray-600 uppercase">🎭 Caribbean Meme Bank v1.0</p>
         </footer>
+
+        <PointsToast userId={userId} />
       </div>
     </>
   )

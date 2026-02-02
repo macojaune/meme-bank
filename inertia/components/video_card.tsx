@@ -1,5 +1,11 @@
 import { useState } from 'react'
 
+interface Person {
+  id: string
+  name: string
+  socialMediaHandle: string | null
+}
+
 interface Video {
   id: string
   title: string
@@ -13,6 +19,7 @@ interface Video {
   region: string | null
   createdAt: string
   userId: string
+  persons?: Person[]
 }
 
 interface VideoCardProps {
@@ -21,6 +28,7 @@ interface VideoCardProps {
   userId: string
   onVideoClick: (video: Video) => void
   onLikeClick: (videoId: string, e: React.MouseEvent) => void
+  onPersonClick?: (person: Person) => void
 }
 
 const REGIONS: Record<string, { name: string }> = {
@@ -89,10 +97,14 @@ export default function VideoCard({
   userId,
   onVideoClick,
   onLikeClick,
+  onPersonClick,
 }: VideoCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const isProcessing = !video.isPublished
+  const persons = video.persons || []
+  const visiblePersons = persons.slice(0, 2)
+  const hiddenPersonsCount = persons.length - visiblePersons.length
 
   return (
     <div
@@ -152,15 +164,38 @@ export default function VideoCard({
         </h3>
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="badge-neo bg-secondary-300">{getRegionDisplay(video.region)}</span>
-          {isProcessing ? (
+          {isProcessing && (
             <span className="badge-neo bg-yellow-400 text-black font-bold animate-pulse">
               ⏳ TRAITEMENT
             </span>
-          ) : (
-            <span className="badge-neo bg-green-400 text-black font-bold">✓ PUBLIÉ</span>
           )}
           <span className="font-medium text-gray-600">{formatDate(video.createdAt)}</span>
         </div>
+
+        {/* Persons tags */}
+        {persons.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {visiblePersons.map((person) => (
+              <button
+                key={person.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onPersonClick?.(person)
+                }}
+                className="px-2 py-0.5 bg-secondary-100 border border-black text-xs font-bold hover:bg-secondary-300 hover:shadow-neo transition-all cursor-pointer"
+              >
+                {person.name}
+              </button>
+            ))}
+            {hiddenPersonsCount > 0 && (
+              <span className="px-2 py-0.5 bg-gray-100 border border-gray-300 text-xs font-bold text-gray-600">
+                +{hiddenPersonsCount} autres
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-4 text-sm font-bold text-gray-600">
           <span>{video.viewCount || 0} vues</span>
           {!isProcessing && (

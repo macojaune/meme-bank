@@ -12,12 +12,16 @@ export default class SearchController {
     try {
       const query = request.input('q', '')
       const region = request.input('region', '')
-      const personId = request.input('personId', '')
+      // Support multiple personIds (can be string or array)
+      let personIds = request.input('personId', [])
+      if (!Array.isArray(personIds)) {
+        personIds = personIds ? [personIds] : []
+      }
       const sortBy = request.input('sortBy', 'newest')
       const page = request.input('page', 1)
       const limit = request.input('limit', 20)
 
-      console.log('[Search] Query:', { query, region, personId, sortBy })
+      console.log('[Search] Query:', { query, region, personIds, sortBy })
 
       // Start with base query - only published videos for public gallery
       let videoQuery = Video.query()
@@ -32,11 +36,13 @@ export default class SearchController {
         videoQuery = videoQuery.where('region', region)
       }
 
-      // Filter by person
-      if (personId) {
-        videoQuery = videoQuery.whereHas('persons', (q) => {
-          q.where('person_id', personId)
-        })
+      // Filter by multiple persons (AND logic - videos with ALL selected persons)
+      if (personIds.length > 0) {
+        for (const personId of personIds) {
+          videoQuery = videoQuery.whereHas('persons', (q) => {
+            q.where('person_id', personId)
+          })
+        }
       }
 
       // Text search in title, description, or transcription
