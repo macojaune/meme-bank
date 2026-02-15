@@ -9,6 +9,10 @@
 
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
+import transmit from '@adonisjs/transmit/services/main'
+
+// Register Transmit routes for SSE
+transmit.registerRoutes()
 
 // Home route
 router.on('/').renderInertia('home')
@@ -114,6 +118,11 @@ router
     // Video status routes (for polling processing state)
     router.post('/videos/status', '#controllers/video_status_controller.checkStatus')
     router.get('/videos/:id/status', '#controllers/video_status_controller.show')
+
+    // Like routes (API version for AJAX calls - uses apiAuth to return 401 instead of redirect)
+    router
+      .post('/videos/:id/like', '#controllers/video_controller.toggleLike')
+      .use(middleware.apiAuth())
   })
   .prefix('/api/v1')
 
@@ -153,6 +162,7 @@ router
           videos: Number(videoCount[0].$extras.total) || 0,
           views: Number(statsResult?.totalViews) || 0,
           likes: Number(statsResult?.totalLikes) || 0,
+          points: auth.user!.totalPoints || 0,
         },
         videos: userVideos.map((v) => ({
           id: v.id,
@@ -258,12 +268,13 @@ router
     })
 
     // Video upload routes
-    router.post('/videos/upload', '#controllers/video_controller.upload')
+    router.post('/videos/upload', '#controllers/video_controller.upload').use(middleware.auth())
     router.get('/videos', '#controllers/video_controller.index')
     router.get('/videos/:id', '#controllers/video_controller.show')
     router.post('/videos/:id/publish', '#controllers/video_controller.publish')
     router.get('/videos/:id/url', '#controllers/video_controller.getSignedUrl')
     router.delete('/videos/:id', '#controllers/video_controller.delete')
-    router.post('/videos/:id/like', '#controllers/video_controller.toggleLike')
+    // Note: Like route is now only available via API at /api/v1/videos/:id/like
+    router.get('/videos/:id/download', '#controllers/video_controller.download')
   })
   .use(middleware.auth())

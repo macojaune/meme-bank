@@ -8,6 +8,10 @@ import queueConfig from '#config/queue'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
+import emitter from '@adonisjs/core/services/emitter'
+import VideoUploaded from '#events/video_uploaded'
+import VideoDownloaded from '#events/video_downloaded'
+import ViewMilestoneReached from '#events/view_milestone_reached'
 
 export default class VideoUploadController {
   /**
@@ -151,23 +155,11 @@ export default class VideoUploadController {
         console.error('[Upload] Failed to queue transcription job:', queueError)
       }
 
-      // Return the created video data (Inertia will handle the redirect)
-      return response.ok({
-        data: {
-          id: video.id,
-          title: video.title,
-          description: video.description,
-          filePath: video.filePath,
-          thumbnailPath: video.thumbnailPath,
-          durationSeconds: video.durationSeconds,
-          region: video.region,
-          isPublished: video.isPublished,
-          viewCount: video.viewCount,
-          likeCount: video.likeCount,
-          createdAt: video.createdAt,
-          userId: video.userId,
-        },
-      })
+      // Emit event for points system
+      await emitter.emit(VideoUploaded, new VideoUploaded(video, auth.user!))
+
+      // Redirect to gallery after successful upload (Inertia will handle this)
+      return response.redirect().toPath('/gallery')
     } catch (error) {
       console.error('Upload error:', error)
       return response.internalServerError({
@@ -370,13 +362,13 @@ export default class VideoUploadController {
         .where('video_id', video.id)
         .first()
 
+      let isLiked: boolean
       if (existingLike) {
         // Unlike: remove the like and decrement likeCount
         await existingLike.delete()
         video.likeCount--
         await video.save()
-
-        return response.redirect('/gallery')
+        isLiked = false
       } else {
         // Like: create new like and increment likeCount
         await Like.create({
@@ -385,11 +377,66 @@ export default class VideoUploadController {
         })
         video.likeCount++
         await video.save()
-
-        return response.redirect('/gallery')
+        isLiked = true
       }
+
+      // Return JSON instead of redirect for AJAX requests
+      return response.ok({
+        success: true,
+        isLiked,
+        likeCount: video.likeCount,
+      })
     } catch (error) {
-      return response.redirect('/gallery')
+      return response.internalServerError({
+        success: false,
+        error: 'Failed to toggle like',
+      })
+    }
+  }
+
+  /**
+   * Download a video and track it
+   */
+  async download({ params, response, auth }: HttpContext) {
+    try {
+      const video = await Video.findOrFail(params.id)
+
+      logger.info(`[Download] Starting download for video ${video.id}, filePath: ${video.filePath}`)
+
+      // Vérifier si le fichier existe avant de tenter de le récupérer
+      const exists = await drive.use('spaces').exists(video.filePath)
+      if (!exists) {
+        logger.error(`[Download] File not found in storage: ${video.filePath}`)
+        return response.notFound({ error: 'Video file not found in storage' })
+      }
+
+      // Log the download
+      const { default: Download } = await import('#models/download')
+      await Download.create({
+        userId: auth.user!.id,
+        videoId: video.id,
+      })
+
+      // Emit event for points
+      await emitter.emit(VideoDownloaded, new VideoDownloaded(video, auth.user!))
+
+      // Stream the video
+      logger.info(`[Download] Retrieving file from storage: ${video.filePath}`)
+      const videoBuffer = await drive.use('spaces').getBytes(video.filePath)
+
+      logger.info(`[Download] File retrieved successfully, size: ${videoBuffer.length} bytes`)
+
+      response.header('Content-Type', 'video/mp4')
+      response.header('Content-Disposition', `attachment; filename="${video.title}.mp4"`)
+
+      return response.send(videoBuffer)
+    } catch (error) {
+      logger.error('[Download] Error:', error)
+      logger.error('[Download] Error stack:', error.stack)
+      return response.internalServerError({
+        error: 'Download failed',
+        message: error.message,
+      })
     }
   }
 }

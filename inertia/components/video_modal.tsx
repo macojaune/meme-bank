@@ -176,6 +176,28 @@ export default function VideoModal({
     onPersonClick?.(person) // Naviguer vers les vidéos de cette personne
   }
 
+  const handleDownload = async (videoId: string) => {
+    try {
+      const response = await fetch(`/videos/${videoId}/download`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `video-${videoId}.mp4`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        alert('Erreur lors du téléchargement')
+      }
+    } catch (error) {
+      console.error('Download error:', error)
+      alert('Erreur lors du téléchargement')
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div
@@ -215,6 +237,13 @@ export default function VideoModal({
                   Supprimer
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => handleDownload(video.id)}
+                className="btn-neo bg-green-500 text-black border-black text-sm px-4 py-2 font-bold uppercase flex items-center gap-2"
+              >
+                📥 Télécharger
+              </button>
             </div>
           </div>
 

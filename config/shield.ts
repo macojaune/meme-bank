@@ -17,7 +17,11 @@ const shieldConfig = defineConfig({
    */
   csrf: {
     enabled: true,
-    exceptRoutes: [],
+    exceptRoutes: (ctx) => {
+      // Exclude all API routes from CSRF protection
+      // API routes use session auth with cookies, not CSRF tokens
+      return ctx.request.url().startsWith('/api/v1/')
+    },
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },

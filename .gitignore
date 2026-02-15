@@ -29,4 +29,8 @@ node_modules/
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Session files
+session-*.md
+*.md.bak 

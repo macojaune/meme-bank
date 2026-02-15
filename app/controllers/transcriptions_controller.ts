@@ -1,8 +1,10 @@
 import { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import emitter from '@adonisjs/core/services/emitter'
 import Video from '#models/video'
 import VideoTranscription, { TranscriptionStatus } from '#models/video_transcription'
+import TranscriptionCorrected from '#events/transcription_corrected'
 
 export default class TranscriptionsController {
   /**
@@ -77,7 +79,7 @@ export default class TranscriptionsController {
       await currentTranscription.save()
 
       // Create new revision
-      await VideoTranscription.create({
+      const newTranscription = await VideoTranscription.create({
         videoId: video.id,
         revisionNumber: currentTranscription.revisionNumber + 1,
         status: TranscriptionStatus.COMMUNITY_CORRECTED,
@@ -96,6 +98,12 @@ export default class TranscriptionsController {
       // Add points to user
       auth.user.totalPoints += 10
       await auth.user.save()
+
+      // Emit event for points system
+      await emitter.emit(
+        TranscriptionCorrected,
+        new TranscriptionCorrected(newTranscription, auth.user!)
+      )
 
       // Redirect back for Inertia (stay in modal, page will reload via router.reload())
       return response.redirect().back()
