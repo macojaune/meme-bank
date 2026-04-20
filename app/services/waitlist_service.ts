@@ -1,4 +1,5 @@
 const BREVO_API_URL = 'https://api.brevo.com/v3'
+const TALLY_QUESTIONNAIRE_URL = 'https://tally.so/r/0QWer6'
 
 type Fetcher = typeof fetch
 
@@ -17,6 +18,17 @@ export class WaitlistServiceError extends Error {
     super(`Brevo ${step} request failed with status ${status}`)
     this.name = 'WaitlistServiceError'
   }
+}
+
+export function buildQuestionnaireUrl(email: string) {
+  const url = new URL(TALLY_QUESTIONNAIRE_URL)
+  url.searchParams.set('email', email.trim().toLowerCase())
+  url.searchParams.set('source', 'brevo-welcome')
+  url.searchParams.set('utm_source', 'brevo')
+  url.searchParams.set('utm_medium', 'email')
+  url.searchParams.set('utm_campaign', 'memebank-beta')
+
+  return url.toString()
 }
 
 export function createWaitlistService(options: WaitlistServiceOptions) {
@@ -42,6 +54,7 @@ export function createWaitlistService(options: WaitlistServiceOptions) {
   return {
     async subscribe(rawEmail: string) {
       const email = rawEmail.trim().toLowerCase()
+      const questionnaireUrl = buildQuestionnaireUrl(email)
 
       await request(
         '/contacts',
@@ -59,11 +72,12 @@ export function createWaitlistService(options: WaitlistServiceOptions) {
           templateId: options.templateId,
           to: [{ email }],
           tags: ['memebank-beta-welcome'],
+          params: { questionnaireUrl },
         },
         'welcome'
       )
 
-      return { email }
+      return { email, questionnaireUrl }
     },
   }
 }

@@ -1,5 +1,9 @@
 import { test } from '@japa/runner'
-import { createWaitlistService, WaitlistServiceError } from '#services/waitlist_service'
+import {
+  buildQuestionnaireUrl,
+  createWaitlistService,
+  WaitlistServiceError,
+} from '#services/waitlist_service'
 
 test.group('Waitlist service', () => {
   test('normalizes the email, adds the contact, then sends the welcome template', async ({
@@ -20,7 +24,11 @@ test.group('Waitlist service', () => {
 
     const result = await service.subscribe('  TESTEUR@EXAMPLE.COM ')
 
-    assert.deepEqual(result, { email: 'testeur@example.com' })
+    assert.deepEqual(result, {
+      email: 'testeur@example.com',
+      questionnaireUrl:
+        'https://tally.so/r/0QWer6?email=testeur%40example.com&source=brevo-welcome&utm_source=brevo&utm_medium=email&utm_campaign=memebank-beta',
+    })
     assert.lengthOf(calls, 2)
     assert.equal(calls[0].url, 'https://api.brevo.com/v3/contacts')
     assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {
@@ -33,7 +41,18 @@ test.group('Waitlist service', () => {
       templateId: 14,
       to: [{ email: 'testeur@example.com' }],
       tags: ['memebank-beta-welcome'],
+      params: {
+        questionnaireUrl:
+          'https://tally.so/r/0QWer6?email=testeur%40example.com&source=brevo-welcome&utm_source=brevo&utm_medium=email&utm_campaign=memebank-beta',
+      },
     })
+  })
+
+  test('encodes plus aliases in the hidden email parameter', ({ assert }) => {
+    assert.equal(
+      buildQuestionnaireUrl(' Test+Beta@Example.com '),
+      'https://tally.so/r/0QWer6?email=test%2Bbeta%40example.com&source=brevo-welcome&utm_source=brevo&utm_medium=email&utm_campaign=memebank-beta'
+    )
   })
 
   test('does not send an email when the contact synchronization fails', async ({ assert }) => {

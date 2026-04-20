@@ -62,9 +62,9 @@ export default class WaitlistController {
         listId: env.get('BREVO_BETA_LIST_ID', 20),
         templateId: env.get('BREVO_WELCOME_TEMPLATE_ID', 14),
       })
-      await service.subscribe(data.email)
+      const { questionnaireUrl } = await service.subscribe(data.email)
 
-      return response.created({ questionnaireUrl: 'https://tally.so/r/0QWer6' })
+      return response.created({ questionnaireUrl })
     } catch (error) {
       logger.error(
         { error: error instanceof Error ? error.message : 'Unknown error' },
