@@ -17,16 +17,22 @@ export default class VideoUploadController {
    */
   private async ensureBucket() {
     const { S3Client, CreateBucketCommand } = await import('@aws-sdk/client-s3')
-    const accessKeyId = process.env.MINIO_ACCESS_KEY
-    const secretAccessKey = process.env.MINIO_SECRET_KEY
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY
+    const endpoint =
+      process.env.R2_ENDPOINT || process.env.MINIO_ENDPOINT || 'http://localhost:9000'
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error('Object storage credentials are not configured')
     }
 
+    // R2 buckets are provisioned outside the application. Object-scoped keys
+    // should never need account-level permission to create buckets.
+    if (process.env.R2_ENDPOINT) return
+
     const client = new S3Client({
-      endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
-      region: process.env.MINIO_REGION || 'us-east-1',
+      endpoint,
+      region: process.env.R2_REGION || process.env.MINIO_REGION || 'us-east-1',
       credentials: {
         accessKeyId,
         secretAccessKey,
@@ -37,7 +43,7 @@ export default class VideoUploadController {
     try {
       await client.send(
         new CreateBucketCommand({
-          Bucket: process.env.MINIO_BUCKET || 'memes',
+          Bucket: process.env.R2_BUCKET || process.env.MINIO_BUCKET || 'memes',
         })
       )
     } catch (error: any) {

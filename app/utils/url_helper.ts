@@ -5,20 +5,32 @@ function getBundledAssetUrl(filePath: string): string | null {
   return cleanPath.startsWith('seed/') ? `/${cleanPath}` : null
 }
 
-/**
- * Convert internal MinIO URL to public URL
- * The internal URL (http://minio:9000) is used inside Docker containers
- * The public URL (http://localhost:9000) is used by the browser
- */
+export function buildObjectPublicUrl(
+  filePath: string,
+  publicEndpoint: string,
+  bucket?: string
+): string {
+  const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath
+  const baseUrl = publicEndpoint.replace(/\/$/, '')
+
+  return bucket ? `${baseUrl}/${bucket}/${cleanPath}` : `${baseUrl}/${cleanPath}`
+}
+
+/** Convert an internal object URL or key to its browser-facing URL. */
 export function getPublicUrl(internalUrl: string): string {
   const bundledAssetUrl = getBundledAssetUrl(internalUrl)
   if (bundledAssetUrl) return bundledAssetUrl
 
-  const internalEndpoint = env.get('MINIO_ENDPOINT', 'http://minio:9000')
-  const publicEndpoint = env.get('MINIO_PUBLIC_URL', 'http://localhost:9000')
+  const internalEndpoint = env.get('R2_ENDPOINT') || env.get('MINIO_ENDPOINT', 'http://minio:9000')
+  const publicEndpoint =
+    env.get('R2_PUBLIC_URL') || env.get('MINIO_PUBLIC_URL', 'http://localhost:9000')
 
   if (internalUrl.startsWith(internalEndpoint)) {
     return internalUrl.replace(internalEndpoint, publicEndpoint)
+  }
+
+  if (!/^https?:\/\//.test(internalUrl)) {
+    return getVideoPublicUrl(internalUrl)
   }
 
   return internalUrl
@@ -33,11 +45,9 @@ export function getVideoPublicUrl(filePath: string): string {
   const bundledAssetUrl = getBundledAssetUrl(filePath)
   if (bundledAssetUrl) return bundledAssetUrl
 
-  const publicEndpoint = env.get('MINIO_PUBLIC_URL', 'http://localhost:9000')
-  const bucket = env.get('MINIO_BUCKET', 'memes')
+  const r2PublicUrl = env.get('R2_PUBLIC_URL')
+  const publicEndpoint = r2PublicUrl || env.get('MINIO_PUBLIC_URL', 'http://localhost:9000')
+  const bucket = env.get('R2_BUCKET') || env.get('MINIO_BUCKET', 'memes')
 
-  // Remove leading slash if present
-  const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath
-
-  return `${publicEndpoint}/${bucket}/${cleanPath}`
+  return buildObjectPublicUrl(filePath, publicEndpoint, r2PublicUrl ? undefined : bucket)
 }
