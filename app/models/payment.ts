@@ -10,7 +10,7 @@ export default class Payment extends BaseModel {
 
   @column()
   declare userId: string
-  
+
   @beforeCreate()
   static assignUuid(payment: Payment) {
     payment.id = uuidv4()

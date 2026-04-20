@@ -14,7 +14,7 @@ export default class PlaylistVideo extends BaseModel {
 
   @column()
   declare videoId: string
-  
+
   @beforeCreate()
   static assignUuid(playlistVideo: PlaylistVideo) {
     playlistVideo.id = uuidv4()

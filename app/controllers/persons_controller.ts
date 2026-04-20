@@ -2,6 +2,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import Person from '#models/person'
 import Video from '#models/video'
 import logger from '@adonisjs/core/services/logger'
+import { canManageVideo } from '#services/video_access'
 
 export default class PersonsController {
   /**
@@ -99,6 +100,9 @@ export default class PersonsController {
       }
 
       const video = await Video.findOrFail(params.videoId)
+      if (!canManageVideo(video.userId, auth.user.id)) {
+        return response.forbidden({ error: 'Only the video owner can edit people tags' })
+      }
       console.log('[Persons Sync] Found video:', video.id)
 
       const { persons } = request.only(['persons'])
@@ -160,6 +164,9 @@ export default class PersonsController {
       }
 
       const video = await Video.findOrFail(params.videoId)
+      if (!canManageVideo(video.userId, auth.user.id)) {
+        return response.forbidden({ error: 'Only the video owner can edit people tags' })
+      }
       const { personId } = request.only(['personId'])
 
       await video.related('persons').detach([personId])

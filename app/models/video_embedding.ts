@@ -56,7 +56,7 @@ export default class VideoEmbedding extends BaseModel {
     if (!this.embedding) return []
     // Remove brackets and split by comma
     const clean = this.embedding.replace('[', '').replace(']', '')
-    return clean.split(',').map((s) => parseFloat(s.trim()))
+    return clean.split(',').map((s) => Number.parseFloat(s.trim()))
   }
 
   /**

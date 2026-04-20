@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
-import VideoPlayer from './video_player.js'
-import TranscriptionViewer from './transcription_viewer.js'
-import TranscriptionHistory from './transcription_history.js'
-import PersonTagInput from './person_tag_input.js'
+
+interface Person {
+  id: string
+  name: string
+  socialMediaHandle?: string | null
+}
 
 interface Video {
   id: string
@@ -18,6 +20,7 @@ interface Video {
   region: string | null
   createdAt: string
   userId: string
+  persons?: Person[]
 }
 
 interface VideoModalProps {
@@ -28,53 +31,273 @@ interface VideoModalProps {
   onPersonClick?: (person: Person) => void
 }
 
-const REGIONS: Record<string, { name: string }> = {
-  guadeloupe: { name: 'Guadeloupe' },
-  martinique: { name: 'Martinique' },
-  guyane: { name: 'Guyane' },
-  reunion: { name: 'La Réunion' },
-  mayotte: { name: 'Mayotte' },
+const REGIONS: Record<string, { name: string; flag: string }> = {
+  guadeloupe: { name: 'Guadeloupe', flag: '🇬🇵' },
+  martinique: { name: 'Martinique', flag: '🇲🇶' },
+  guyane: { name: 'Guyane', flag: '🇬🇫' },
+  reunion: { name: 'La Reunion', flag: '🇷🇪' },
+  mayotte: { name: 'Mayotte', flag: '🇾🇹' },
 }
 
-function getRegionDisplay(regionId: string | null): string {
-  if (!regionId) return 'Autre'
-  return REGIONS[regionId]?.name || 'Autre'
+const CloseIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="4"
+    strokeLinecap="round"
+  >
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+)
+
+const DownloadIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+)
+
+const EditIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+)
+
+const CheckIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+)
+
+function getRegionDisplay(regionId: string | null): { name: string; flag: string } {
+  if (!regionId) return { name: 'AUTRE', flag: '🌴' }
+  return REGIONS[regionId] || { name: 'AUTRE', flag: '🌴' }
 }
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-interface Person {
+function getVideoUrl(videoId: string): string {
+  return `/videos/stream/${videoId}`
+}
+
+interface Transcription {
   id: string
-  name: string
-  socialMediaHandle: string | null
-  platform: string | null
+  text: string
+  language: string
+  status: string
+  confidence: number | null
+  revisionNumber: number
+  pointsAwarded: number
 }
 
-function VideoPersonsEditor({
+function TranscriptionSection({ videoId }: { videoId: string }) {
+  const [transcription, setTranscription] = useState<Transcription | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedText, setEditedText] = useState('')
+  const [originalText, setOriginalText] = useState('')
+  const [correctionReason, setCorrectionReason] = useState('')
+
+  useEffect(() => {
+    loadTranscription()
+  }, [videoId])
+
+  const loadTranscription = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/v1/videos/${videoId}/transcription`)
+      const data = await response.json()
+      if (data.data) {
+        setTranscription(data.data)
+        setEditedText(data.data.text)
+        setOriginalText(data.data.text)
+      }
+    } catch (err) {
+      console.error('Failed to load transcription')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const hasChanges = () => editedText.trim() !== originalText.trim()
+
+  const submitCorrection = () => {
+    if (!editedText.trim() || !hasChanges()) return
+
+    router.post(
+      `/api/v1/videos/${videoId}/transcription/correct`,
+      { text: editedText, reason: correctionReason },
+      {
+        preserveState: true,
+        onSuccess: () => {
+          setIsEditing(false)
+          setCorrectionReason('')
+          loadTranscription()
+        },
+      }
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-yellow-50 border-4 border-black p-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-300 w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-300 w-1/2"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!transcription) {
+    return (
+      <div className="bg-yellow-50 border-4 border-black p-4">
+        <p className="font-bold uppercase text-sm">Transcription en cours...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-yellow-50 border-4 border-black p-4">
+      <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-2">
+        <h3 className="font-black uppercase text-sm">TRANSCRIPTION</h3>
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-1 bg-black text-white text-xs font-bold uppercase">
+            {transcription.language}
+          </span>
+          {transcription.pointsAwarded > 0 && (
+            <span className="px-2 py-1 bg-green-400 text-black text-xs font-bold uppercase border-2 border-black">
+              +{transcription.pointsAwarded} PTS
+            </span>
+          )}
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-3">
+          <textarea
+            value={editedText}
+            onChange={(e) => setEditedText(e.target.value)}
+            className="w-full h-40 p-3 border-4 border-black bg-white focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] outline-none text-base font-medium resize-none"
+            placeholder="Corrigez la transcription..."
+          />
+          <input
+            type="text"
+            value={correctionReason}
+            onChange={(e) => setCorrectionReason(e.target.value)}
+            className="w-full p-3 border-4 border-black bg-white focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] outline-none text-base font-medium"
+            placeholder="Raison de la correction (optionnel)"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={submitCorrection}
+              disabled={!hasChanges()}
+              className="flex-1 bg-green-400 border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <CheckIcon />
+              SOUMETTRE (+10 PTS)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(false)
+                setEditedText(originalText)
+                setCorrectionReason('')
+              }}
+              className="bg-gray-300 border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+            >
+              ANNULER
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="whitespace-pre-wrap font-medium text-lg leading-relaxed mb-4">
+            {transcription.text}
+          </p>
+          <div className="flex justify-between items-center pt-3 border-t-2 border-black">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              Revision #{transcription.revisionNumber}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="bg-magenta border-4 border-black px-4 py-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center gap-2 text-white"
+            >
+              <EditIcon />
+              CORRIGER (+10 PTS)
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PersonsSection({
   videoId,
-  userId,
-  videoUserId,
   onPersonClick,
 }: {
   videoId: string
-  userId: string
-  videoUserId: string
   onPersonClick?: (person: Person) => void
 }) {
   const [persons, setPersons] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     loadPersons()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId])
 
   const loadPersons = async () => {
@@ -84,82 +307,43 @@ function VideoPersonsEditor({
       const data = await response.json()
       setPersons(data.data || [])
     } catch (err) {
-      console.error('Failed to load persons:', err)
+      console.error('Failed to load persons')
     } finally {
       setLoading(false)
     }
   }
 
-  const savePersons = (newPersons: Person[]) => {
-    router.post(
-      `/api/v1/videos/${videoId}/persons`,
-      { persons: newPersons },
-      {
-        preserveState: true,
-        onSuccess: () => {
-          setPersons(newPersons)
-          setIsEditing(false)
-        },
-        onError: (errors) => {
-          console.error('Failed to save persons:', errors)
-          alert('Erreur lors de la sauvegarde')
-        },
-      }
+  if (loading) {
+    return (
+      <div className="bg-gray-100 border-4 border-black p-4 text-sm font-bold">Chargement...</div>
     )
   }
 
-  if (loading) {
-    return <div className="text-sm text-gray-500">Chargement...</div>
-  }
-
   return (
-    <div className="p-3 border-2 border-black bg-white">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="font-bold text-sm uppercase">Personnes présentes</h4>
-        {userId === videoUserId && (
-          <button
-            type="button"
-            onClick={() => setIsEditing(!isEditing)}
-            className="text-xs btn-neo px-2 py-1"
-          >
-            {isEditing ? 'Annuler' : '✏️ Modifier'}
-          </button>
+    <div className="bg-gray-100 border-4 border-black p-4">
+      <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-2">
+        <h3 className="font-black uppercase text-sm">PERSONNES</h3>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {persons.length > 0 ? (
+          persons.map((person) => (
+            <button
+              key={person.id}
+              type="button"
+              onClick={() => onPersonClick?.(person)}
+              className="px-3 py-1.5 bg-cyan border-2 border-black font-bold text-sm hover:bg-black hover:text-white transition-colors"
+            >
+              {person.name}
+            </button>
+          ))
+        ) : (
+          <span className="text-sm font-medium text-gray-500 italic">
+            Aucune personne identifiee
+          </span>
         )}
       </div>
-
-      {isEditing ? (
-        <PersonTagInput
-          selectedPersons={persons}
-          onChange={savePersons}
-          placeholder="Ajoutez des personnes..."
-        />
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {persons.length > 0 ? (
-            persons.map((person) => (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => onPersonClick?.(person)}
-                className="px-2 py-1 bg-secondary-100 border border-black text-sm font-bold hover:bg-secondary-300 hover:shadow-neo transition-all cursor-pointer"
-              >
-                {person.name}
-                {person.socialMediaHandle && (
-                  <span className="text-xs text-gray-600 ml-1">@{person.socialMediaHandle}</span>
-                )}
-              </button>
-            ))
-          ) : (
-            <span className="text-sm text-gray-500 italic">Aucune personne identifiée</span>
-          )}
-        </div>
-      )}
     </div>
   )
-}
-
-function getVideoUrl(videoId: string): string {
-  return `/videos/stream/${videoId}`
 }
 
 export default function VideoModal({
@@ -171,10 +355,8 @@ export default function VideoModal({
 }: VideoModalProps) {
   if (!video) return null
 
-  const handlePersonClick = (person: Person) => {
-    onClose() // Fermer le modal
-    onPersonClick?.(person) // Naviguer vers les vidéos de cette personne
-  }
+  const isOwner = video.userId === userId
+  const region = getRegionDisplay(video.region)
 
   const handleDownload = async (videoId: string) => {
     try {
@@ -184,82 +366,94 @@ export default function VideoModal({
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `video-${videoId}.mp4`
+        a.download = `meme-${videoId}.mp4`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
-      } else {
-        alert('Erreur lors du téléchargement')
       }
     } catch (error) {
       console.error('Download error:', error)
-      alert('Erreur lors du téléchargement')
     }
   }
 
+  const handlePersonClick = (person: Person) => {
+    onClose()
+    onPersonClick?.(person)
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div
-        className="card-neo max-w-6xl w-full bg-white relative"
-        style={{ maxHeight: 'calc(100vh - 2rem)', height: 'auto' }}
-      >
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+        {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute -top-4 -right-4 btn-neo-brick w-10 h-10 flex items-center justify-center z-[60]"
+          className="absolute top-2 right-2 bg-red-500 border-4 border-black w-10 h-10 flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all z-10"
         >
-          ✕
+          <CloseIcon />
         </button>
 
-        <div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4"
-          style={{ maxHeight: 'calc(100vh - 4rem)' }}
-        >
-          {/* Left Column - Video */}
-          <div className="flex flex-col overflow-hidden">
-            <VideoPlayer videoUrl={getVideoUrl(video.id)} />
+        {/* Layout: Video Left, Content Right */}
+        <div className="flex flex-col lg:flex-row">
+          {/* LEFT - Video */}
+          <div className="lg:w-3/5 bg-black flex items-center justify-center border-b-4 lg:border-b-0 lg:border-r-4 border-black">
+            <video
+              src={getVideoUrl(video.id)}
+              controls
+              className="w-full h-auto max-h-[50vh] lg:max-h-[none] object-contain"
+            />
+          </div>
 
-            <div className="pt-4 flex-shrink-0">
-              <h2 className="text-xl font-black text-black uppercase mb-2">{video.title}</h2>
-              <p className="text-gray-600 mb-3">{video.description}</p>
-              <div className="flex items-center gap-4 text-sm mb-4 flex-wrap">
-                <span className="badge-neo bg-secondary-300">{getRegionDisplay(video.region)}</span>
-                <span className="text-gray-600">{formatDate(video.createdAt)}</span>
-                <span className="font-bold">{video.viewCount || 0} vues</span>
+          {/* RIGHT - Content */}
+          <div className="lg:w-2/5 flex flex-col">
+            {/* Header: Title + Tags */}
+            <div className="p-4 border-b-4 border-black bg-white">
+              <h2 className="text-xl md:text-2xl font-black uppercase mb-3 leading-tight break-words">
+                {video.title}
+              </h2>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 bg-black text-white font-bold text-sm uppercase whitespace-nowrap">
+                  {region.flag} {region.name}
+                </span>
+                <span className="px-3 py-1 bg-gray-200 border-2 border-black font-bold text-sm uppercase whitespace-nowrap">
+                  {formatDate(video.createdAt)}
+                </span>
               </div>
-              {video.userId === userId && (
-                <button
-                  type="button"
-                  onClick={() => onDelete(video.id)}
-                  className="btn-neo bg-red-500 text-black border-black text-sm px-4 py-2 font-bold uppercase"
-                >
-                  Supprimer
-                </button>
-              )}
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              <PersonsSection videoId={video.id} onPersonClick={handlePersonClick} />
+              <TranscriptionSection videoId={video.id} />
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-4 border-t-4 border-black bg-gray-50 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => handleDownload(video.id)}
-                className="btn-neo bg-green-500 text-black border-black text-sm px-4 py-2 font-bold uppercase flex items-center gap-2"
+                className="w-full bg-white border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2"
               >
-                📥 Télécharger
+                <DownloadIcon />
+                TELECHARGER
               </button>
-            </div>
-          </div>
 
-          {/* Right Column - Personnes & Transcription */}
-          <div
-            className="bg-gray-50 overflow-y-auto gap-2"
-            style={{ maxHeight: 'calc(100vh - 6rem)' }}
-          >
-            <VideoPersonsEditor
-              videoId={video.id}
-              userId={userId}
-              videoUserId={video.userId}
-              onPersonClick={handlePersonClick}
-            />
-            <TranscriptionViewer videoId={video.id} isOwner={video.userId === userId} />
-            <TranscriptionHistory videoId={video.id} />
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Supprimer cette video ? Cette action est irreversible.')) {
+                      onDelete(video.id)
+                    }
+                  }}
+                  className="w-full text-sm font-bold uppercase hover:underline text-gray-500 hover:text-red-500 transition-colors text-center py-2"
+                >
+                  Supprimer cette video
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

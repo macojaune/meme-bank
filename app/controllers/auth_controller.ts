@@ -43,8 +43,6 @@ export default class AuthController {
       // Validate request data using VineJS
       const data = await registerValidator.validate(request.body())
 
-      console.log(`Registering user with email: ${data.email}`)
-
       // Create user
       const user = await User.create({
         email: data.email,
@@ -52,16 +50,11 @@ export default class AuthController {
         fullName: data.fullName,
       })
 
-      console.log(`User created successfully with ID: ${user.id}`)
-
       // Auto-login the user after registration
       await auth.use('web').login(user)
 
       return response.redirect('/dashboard')
     } catch (error) {
-      console.log(`Registration error: ${error.message}`)
-      console.log(`Full error:`, error)
-
       // Handle validation errors
       if (error.code === 'E_VALIDATION_ERROR') {
         return response.redirect().back()
@@ -77,7 +70,6 @@ export default class AuthController {
    */
   async login({ request, response, auth }: HttpContext) {
     try {
-      // Validate request data using VineJS
       const { email, password } = await loginValidator.validate(request.body())
 
       try {
@@ -85,10 +77,10 @@ export default class AuthController {
         await auth.use('web').login(user)
         return response.redirect('/dashboard')
       } catch (error) {
-        return response.redirect().back()
+        return response.redirect('/login?error=invalid')
       }
     } catch (error) {
-      return response.redirect().back()
+      return response.redirect('/login?error=validation')
     }
   }
 
@@ -121,9 +113,7 @@ export default class AuthController {
         user.resetTokenExpiresAt = expiresAt
         await user.save()
 
-        // In a real app, send email with reset link
-        // For now, just log it
-        console.log(`Password reset link: /reset-password?token=${token}`)
+        // Email delivery is intentionally handled outside logs so reset tokens never leak.
       }
 
       // Always return success to prevent email enumeration

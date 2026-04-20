@@ -14,7 +14,7 @@ export default class Report extends BaseModel {
 
   @column()
   declare videoId: string
-  
+
   @beforeCreate()
   static assignUuid(report: Report) {
     report.id = uuidv4()

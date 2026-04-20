@@ -38,7 +38,9 @@ Core product flows:
 
 ### Main user experience
 
-- `/`: public landing page with top leaderboard preview
+- `/`: public launch landing with a searchable preview of the latest published videos
+- `POST /waitlist`: Brevo beta-list signup and transactional welcome email
+- `/health`: deployment health check
 - `/login`, `/register`, `/forgot-password`, `/reset-password`: auth flows
 - `/dashboard`: authenticated user stats and owned content
 - `/gallery`: authenticated gallery mixing published videos with the current user's unpublished videos
@@ -156,6 +158,13 @@ Additional variables are used by config and jobs even though they are not valida
 - `WHISPER_MODEL_PATH`, `WHISPER_CLI_PATH`
 - `OLLAMA_URL`, `OLLAMA_TRANSCRIPTION_MODEL`, `OLLAMA_EMBEDDING_MODEL`
 - `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_EMBEDDING_MODEL`
+- `BREVO_API_KEY`: server-only key for waitlist contact sync and welcome delivery
+- `BREVO_BETA_LIST_ID`: beta tester list ID (currently `20`)
+- `BREVO_WELCOME_TEMPLATE_ID`: active welcome template ID (currently `14`)
+
+The welcome email links to the published beta questionnaire at
+[`https://tally.so/r/0QWer6`](https://tally.so/r/0QWer6). Keep the Brevo API key server-side and
+inject it through the deployment environment; never expose it through a `VITE_` variable.
 
 ## Operator Commands
 

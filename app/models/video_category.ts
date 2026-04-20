@@ -14,7 +14,7 @@ export default class VideoCategory extends BaseModel {
 
   @column()
   declare categoryId: string
-  
+
   @beforeCreate()
   static assignUuid(videoCategory: VideoCategory) {
     videoCategory.id = uuidv4()

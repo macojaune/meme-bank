@@ -14,7 +14,7 @@ export default class View extends BaseModel {
 
   @column()
   declare userId: string | null
-  
+
   @beforeCreate()
   static assignUuid(view: View) {
     view.id = uuidv4()

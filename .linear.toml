@@ -1,0 +1,6 @@
+# linear cli
+# https://github.com/schpet/linear-cli
+
+workspace = "marvinl"
+team_id = "MAR"
+issue_sort = "priority"

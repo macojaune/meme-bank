@@ -16,20 +16,18 @@ export default function Layout({ title = 'Meme Bank', children }: LayoutProps) {
         <Title>{title}</Title>
         <Meta name="csrf-token" content={Inertia.csrfToken()} />
         <Meta name="description" content="Meme Bank - Your Video Collection" />
-        
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" 
-          rel="stylesheet" 
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
         />
-        
+
         <script src="/@vite/client" />
       </Head>
       <body>
-        <div id="app">
-          {children}
-        </div>
+        <div id="app">{children}</div>
       </body>
     </html>
   )

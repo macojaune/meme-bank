@@ -13,7 +13,8 @@ export default class QueueService {
   private initializeQueues() {
     // Initialiser chaque queue définie dans la config
     for (const [key, config] of Object.entries(queueConfig.queues)) {
-      const { connection: _, ...optsWithoutConnection } = config.opts || {}
+      const { connection: ignoredConnection, ...optsWithoutConnection } = config.opts || {}
+      void ignoredConnection
       const queue = new Queue(config.name, {
         connection: queueConfig.connection,
         ...optsWithoutConnection,

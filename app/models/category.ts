@@ -7,7 +7,7 @@ import type { ManyToMany } from '@adonisjs/lucid/types/relations'
 export default class Category extends BaseModel {
   @column({ isPrimary: true })
   declare id: string
-  
+
   @beforeCreate()
   static assignUuid(category: Category) {
     category.id = uuidv4()

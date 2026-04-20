@@ -14,7 +14,7 @@ export default class Like extends BaseModel {
 
   @column()
   declare videoId: string
-  
+
   @beforeCreate()
   static assignUuid(like: Like) {
     like.id = uuidv4()

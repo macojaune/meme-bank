@@ -13,7 +13,7 @@ export default class Notification extends BaseModel {
 
   @column()
   declare actorId: string | null
-  
+
   @beforeCreate()
   static assignUuid(notification: Notification) {
     notification.id = uuidv4()
