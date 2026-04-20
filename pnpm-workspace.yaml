@@ -1,6 +1,11 @@
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - msgpackr-extract
+
 overrides:
   '@adonisjs/bodyparser@<10.1.5': '10.1.5'
   '@adonisjs/http-server@<7.8.1': '7.8.1'

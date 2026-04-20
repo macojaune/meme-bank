@@ -20,10 +20,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy package files first (for better caching)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install dependencies
-RUN npm install -g pnpm && pnpm install
+# Install dependencies with the same pnpm release used to generate the lockfile.
+RUN corepack enable && \
+    corepack prepare pnpm@10.20.0 --activate && \
+    pnpm install --frozen-lockfile
 
 # Build and install whisper.cpp (using v1.6.2 stable version)
 RUN git clone --branch v1.6.2 --depth 1 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
