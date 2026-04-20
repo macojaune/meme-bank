@@ -51,6 +51,10 @@ COPY . .
 # Build the application and fail the image build on TypeScript errors
 RUN pnpm run build
 
+# Adonis resolves the Vite manifest and other production assets from the
+# compiled application root.
+WORKDIR /app/build
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV WHISPER_MODEL_PATH=/models/ggml-base.bin
@@ -64,5 +68,5 @@ EXPOSE 63240
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:63240/health || exit 1
 
-# Start the application (production mode uses build/bin/server.js)
-CMD ["node", "build/bin/server.js"]
+# Start the compiled application.
+CMD ["node", "bin/server.js"]
