@@ -68,5 +68,5 @@ EXPOSE 63240
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:63240/health || exit 1
 
-# Start the compiled application.
-CMD ["node", "bin/server.js"]
+# Run migrations and the curated demo seed only when the environment opts in.
+CMD ["sh", "-c", "if [ \"$RUN_MIGRATIONS\" = \"true\" ]; then node ace migration:run --force; fi; if [ \"$RUN_SEEDS\" = \"true\" ]; then node ace db:seed; fi; exec node bin/server.js"]
