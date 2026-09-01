@@ -1,19 +1,11 @@
 import { Head, Link } from '@inertiajs/react'
-import { FormEvent, useMemo, useRef, useState } from 'react'
+import { FormEvent, useRef, useState } from 'react'
+import GalleryPreview, { type PreviewVideo } from '../components/gallery_preview'
 
 interface LeaderboardEntry {
   rank: number
   fullName: string
   totalPoints: number
-}
-
-interface PreviewVideo {
-  id: string
-  title: string
-  thumbnailPath: string | null
-  filePath: string
-  region: string | null
-  durationSeconds: number | null
 }
 
 interface HomeProps {
@@ -35,22 +27,6 @@ function csrfToken() {
   return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : ''
 }
 
-function formatDuration(seconds: number | null) {
-  if (!seconds) return null
-  const minutes = Math.floor(seconds / 60)
-  const remainder = Math.round(seconds % 60)
-  return `${minutes}:${remainder.toString().padStart(2, '0')}`
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  )
-}
-
 function ArrowIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
@@ -64,21 +40,12 @@ export default function Home({
   previewVideos = EMPTY_PREVIEW,
   auth,
 }: HomeProps) {
-  const [previewQuery, setPreviewQuery] = useState('')
   const [email, setEmail] = useState('')
   const [consent, setConsent] = useState(false)
   const [website, setWebsite] = useState('')
   const [signupState, setSignupState] = useState<SignupState>('idle')
   const [signupMessage, setSignupMessage] = useState('')
   const submittingRef = useRef(false)
-
-  const filteredVideos = useMemo(() => {
-    const query = previewQuery.trim().toLocaleLowerCase('fr')
-    if (!query) return previewVideos
-    return previewVideos.filter((video) =>
-      [video.title, video.region].some((value) => value?.toLocaleLowerCase('fr').includes(query))
-    )
-  }, [previewQuery, previewVideos])
 
   async function joinWaitlist(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -186,69 +153,7 @@ export default function Home({
             </div>
           </section>
 
-          <section id="preview" className="scroll-mt-24 border-b-4 border-black bg-white px-4 py-14 sm:py-20">
-            <div className="mx-auto max-w-7xl">
-              <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
-                <div className="lg:col-span-7">
-                  <h2 className="text-4xl font-black uppercase leading-none tracking-[-0.035em] sm:text-6xl">La médiathèque, en vrai.</h2>
-                  <p className="mt-5 max-w-2xl text-lg font-medium leading-7">
-                    Cet aperçu utilise les derniers mèmes déjà publiés dans la base. Cherche par titre ou territoire, puis lance une vidéo sans quitter la page.
-                  </p>
-                </div>
-                <div className="lg:col-span-5">
-                  <label htmlFor="preview-search" className="mb-2 block text-sm font-black uppercase">Filtrer l’aperçu</label>
-                  <div className="flex min-w-0 border-4 border-black bg-white shadow-neo-sm focus-within:outline focus-within:outline-4 focus-within:outline-offset-2 focus-within:outline-[#ffd600]">
-                    <span className="grid shrink-0 place-items-center px-3"><SearchIcon /></span>
-                    <input
-                      id="preview-search"
-                      type="search"
-                      value={previewQuery}
-                      onChange={(event) => setPreviewQuery(event.target.value)}
-                      placeholder="Titre ou territoire"
-                      className="min-w-0 flex-1 px-2 py-4 text-base font-bold outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {filteredVideos.length > 0 ? (
-                <div className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredVideos.map((video) => (
-                    <article key={video.id} className="overflow-hidden border-4 border-black bg-[#fff8e7] shadow-neo-lg">
-                      <video
-                        controls
-                        preload="metadata"
-                        poster={video.thumbnailPath ?? undefined}
-                        src={video.filePath}
-                        className="aspect-video w-full border-b-4 border-black bg-black object-cover"
-                        aria-label={`Lire ${video.title}`}
-                      />
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <h3 className="text-xl font-black leading-tight [overflow-wrap:anywhere]">
-                            {video.title}
-                          </h3>
-                          {formatDuration(video.durationSeconds) ? (
-                            <span className="shrink-0 bg-black px-2 py-1 text-xs font-black text-white">{formatDuration(video.durationSeconds)}</span>
-                          ) : null}
-                        </div>
-                        <p className="mt-4 text-sm font-black uppercase text-neutral-700">{video.region ?? 'Caraïbes'}</p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-10 border-4 border-black bg-[#ffd600] p-8 text-center shadow-neo-sm">
-                  <p className="text-xl font-black uppercase">
-                    {previewVideos.length === 0 ? 'La médiathèque sera visible dès sa connexion.' : 'Aucun mème ne correspond à cette recherche.'}
-                  </p>
-                  {previewQuery ? (
-                    <button type="button" onClick={() => setPreviewQuery('')} className="mt-4 font-black underline">Effacer la recherche</button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </section>
+          <GalleryPreview videos={previewVideos} />
 
           <section id="waitlist" className="scroll-mt-20 border-b-4 border-black bg-[#ffd600] px-4 py-14 sm:py-20">
             <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-12 lg:items-start">
