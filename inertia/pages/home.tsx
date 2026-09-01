@@ -128,7 +128,7 @@ export default function Home({
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
                   <a href="#waitlist" className="btn-neo-yellow inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
-                    Tester en premier <ArrowIcon />
+                    Rejoindre la bêta <ArrowIcon />
                   </a>
                   <a href="#preview" className="btn-neo-ghost inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
                     Voir l’aperçu
@@ -209,7 +209,7 @@ export default function Home({
                   disabled={signupState === 'loading' || !email || !consent}
                   className="mt-6 inline-flex w-full items-center justify-center gap-2 border-4 border-black bg-black px-6 py-4 text-base font-black uppercase text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {signupState === 'loading' ? 'Inscription en cours…' : 'Me préinscrire'}
+                  {signupState === 'loading' ? 'Inscription en cours…' : 'Rejoindre la bêta'}
                   {signupState !== 'loading' ? <ArrowIcon /> : null}
                 </button>
 
