@@ -1,0 +1,12 @@
+.agents
+.env
+.env.*
+.git
+.jj
+.DS_Store
+build
+coverage
+node_modules
+storage
+tmp
+*.log
