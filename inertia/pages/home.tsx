@@ -168,7 +168,7 @@ export default function Home({
                   rel="noreferrer"
                   className="mt-6 inline-block font-black underline decoration-4 underline-offset-4 hover:no-underline"
                 >
-                  Déjà préinscrit·e ? Remplir le questionnaire directement →
+                  Trop pressé·e ?! Remplis le questionnaire direct →
                 </a>
               </div>
 
