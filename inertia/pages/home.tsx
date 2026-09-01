@@ -140,16 +140,16 @@ export default function Home({
 
           <section className="grid border-b-4 border-black lg:grid-cols-3">
             <div className="border-b-4 border-black bg-[#ffd600] p-7 lg:border-b-0 lg:border-r-4">
-              <p className="text-2xl font-black uppercase">Chercher comme on parle</p>
-              <p className="mt-3 font-semibold leading-6">Un titre, une expression ou un territoire suffit pour parcourir ce qui est déjà dans la banque.</p>
+              <p className="text-2xl font-black uppercase">Tape la phrase. Retrouve le mème.</p>
+              <p className="mt-3 font-semibold leading-6">Une punchline, un nom, un bout de créole. MemeBank fouille la banque à ta place.</p>
             </div>
             <div className="border-b-4 border-black bg-white p-7 lg:border-b-0 lg:border-r-4">
-              <p className="text-2xl font-black uppercase">Préserver le contexte</p>
-              <p className="mt-3 font-semibold leading-6">Chaque vidéo garde son nom, son origine et, avec la communauté, les personnes et les mots qui l’accompagnent.</p>
+              <p className="text-2xl font-black uppercase">On transcrit. On corrige.</p>
+              <p className="mt-3 font-semibold leading-6">Chaque vidéo devient cherchable mot par mot. La communauté corrige les ratés et ajoute le contexte qui manque.</p>
             </div>
             <div className="bg-[#22d3ee] p-7">
-              <p className="text-2xl font-black uppercase">Construire ensemble</p>
-              <p className="mt-3 font-semibold leading-6">La bêta servira à éprouver la recherche, enrichir l’archive et décider des fonctions qui comptent vraiment.</p>
+              <p className="text-2xl font-black uppercase">Pas de rèf sans crédits.</p>
+              <p className="mt-3 font-semibold leading-6">Les noms et les @ restent attachés à la vidéo. On partage sans effacer les personnes qui ont créé ou fait vivre le mème.</p>
             </div>
           </section>
 
