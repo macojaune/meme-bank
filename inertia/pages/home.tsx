@@ -117,10 +117,10 @@ export default function Home({
 
   return (
     <>
-      <Head title="Les réactions d’ici, enfin retrouvables">
+      <Head title="Tous nos mèmes, sans chercher 3 heures">
         <meta
           name="description"
-          content="MemeBank archive et rend retrouvables les mèmes vidéo de Guadeloupe et des Caraïbes. Rejoins la bêta."
+          content="MemeBank rassemble les mèmes vidéo des Antilles-Guyane pour les retrouver, les regarder et les transmettre sans perdre la rèf."
         />
       </Head>
 
@@ -152,12 +152,12 @@ export default function Home({
             <div className="mx-auto grid max-w-7xl items-end gap-10 lg:grid-cols-12">
               <div className="lg:col-span-8">
                 <h1 className="max-w-[10ch] text-[clamp(3.4rem,10vw,7.5rem)] font-black uppercase leading-[0.84] tracking-[-0.04em]">
-                  La bonne réaction. Sans fouiller 3 heures.
+                  Tous nos mèmes, sans chercher 3 heures.
                 </h1>
               </div>
               <div className="lg:col-span-4 lg:pb-2">
                 <p className="max-w-[34rem] text-lg font-semibold leading-7 sm:text-xl">
-                  MemeBank rassemble les mèmes vidéo de Guadeloupe et des Caraïbes pour les retrouver, les regarder et les transmettre sans perdre la référence.
+                  MemeBank rassemble les mèmes vidéo des Antilles-Guyane pour les retrouver, les regarder et les transmettre sans perdre la rèf.
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
                   <a href="#waitlist" className="btn-neo-yellow inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
