@@ -252,6 +252,31 @@ body {
   text-wrap: balance;
 }
 
+.app-preview-scroll {
+  scrollbar-color: #000000 #fff8e7;
+  scrollbar-width: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-preview-scroll::-webkit-scrollbar {
+  width: 14px;
+}
+
+.app-preview-scroll::-webkit-scrollbar-track {
+  background: #fff8e7;
+  border-left: 3px solid #000000;
+}
+
+.app-preview-scroll::-webkit-scrollbar-thumb {
+  background: #ffd600;
+  border: 3px solid #000000;
+}
+
+.app-preview-scroll:focus-visible {
+  outline: 4px solid #22d3ee;
+  outline-offset: -8px;
+}
+
 /* Yellow button variant */
 .btn-neo-yellow {
   background-color: #facc15;
