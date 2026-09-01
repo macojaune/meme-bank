@@ -1,7 +1,6 @@
 import type { Job } from 'bullmq'
 import type { EmbeddingJobData, JobResult } from './types.js'
 import { getAIServiceFactory } from '../services/ai/ai_factory.js'
-import queueConfig from '#config/queue'
 
 /**
  * Job processor for embedding jobs

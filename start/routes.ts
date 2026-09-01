@@ -14,8 +14,64 @@ import transmit from '@adonisjs/transmit/services/main'
 // Register Transmit routes for SSE
 transmit.registerRoutes()
 
-// Home route
-router.on('/').renderInertia('home')
+router.get('/health', async ({ response }) => response.ok({ status: 'ok' }))
+
+// Public launch landing with a read-only preview of published content.
+router.get('/', async ({ inertia, auth }) => {
+  let leaderboard: Array<{ rank: number; fullName: string; totalPoints: number }> = []
+  let previewVideos: Array<{
+    id: string
+    title: string
+    thumbnailPath: string | null
+    filePath: string
+    region: string | null
+    durationSeconds: number | null
+  }> = []
+
+  try {
+    const { default: User } = await import('#models/user')
+    const { default: Video } = await import('#models/video')
+    const { getVideoPublicUrl } = await import('#utils/url_helper')
+
+    const [leaderboardData, videos] = await Promise.all([
+      User.query().where('totalPoints', '>', 0).orderBy('totalPoints', 'desc').limit(5),
+      Video.query().where('is_published', true).orderBy('created_at', 'desc').limit(6),
+    ])
+
+    leaderboard = leaderboardData.map((user, index) => ({
+      rank: index + 1,
+      fullName: user.fullName ?? 'Membre MemeBank',
+      totalPoints: user.totalPoints,
+    }))
+
+    previewVideos = videos.map((video) => ({
+      id: video.id,
+      title: video.title,
+      thumbnailPath: video.thumbnailPath ? getVideoPublicUrl(video.thumbnailPath) : null,
+      filePath: getVideoPublicUrl(video.filePath),
+      region: video.region,
+      durationSeconds: video.durationSeconds,
+    }))
+  } catch (error) {
+    console.error('Failed to load public landing data:', error)
+  }
+
+  return inertia.render('home', {
+    leaderboard,
+    previewVideos,
+    auth: {
+      isLoggedIn: auth.isAuthenticated,
+      user: auth.user
+        ? {
+            id: auth.user.id,
+            fullName: auth.user.fullName,
+          }
+        : null,
+    },
+  })
+})
+
+router.post('/waitlist', '#controllers/waitlist_controller.store')
 
 // Authentication UI routes
 router
@@ -96,16 +152,22 @@ router
       '/videos/:videoId/transcription/history',
       '#controllers/transcriptions_controller.history'
     )
-    router.post(
-      '/videos/:videoId/transcription/correct',
-      '#controllers/transcriptions_controller.correct'
-    )
+    router
+      .post(
+        '/videos/:videoId/transcription/correct',
+        '#controllers/transcriptions_controller.correct'
+      )
+      .use(middleware.apiAuth())
 
     // Person routes
     router.get('/persons/search', '#controllers/persons_controller.search')
     router.get('/videos/:videoId/persons', '#controllers/persons_controller.index')
-    router.post('/videos/:videoId/persons', '#controllers/persons_controller.sync')
-    router.delete('/videos/:videoId/persons', '#controllers/persons_controller.detach')
+    router
+      .post('/videos/:videoId/persons', '#controllers/persons_controller.sync')
+      .use(middleware.apiAuth())
+    router
+      .delete('/videos/:videoId/persons', '#controllers/persons_controller.detach')
+      .use(middleware.apiAuth())
 
     // Search routes
     router.get('/search', '#controllers/search_controller.search')
@@ -135,6 +197,8 @@ router
     // Dashboard - with user stats
     router.get('/dashboard', async ({ inertia, auth }) => {
       const { default: Video } = await import('#models/video')
+      const { default: Like } = await import('#models/like')
+      const { getPublicUrl } = await import('#utils/url_helper')
 
       // Get user's videos count
       const videoCount = await Video.query().where('user_id', auth.user!.id).count('* as total')
@@ -156,6 +220,33 @@ router
           q.where('is_current', true)
         })
         .preload('persons')
+
+      // Get user's liked videos
+      const likedVideos = await Like.query()
+        .where('user_id', auth.user!.id)
+        .preload('video', (q) => {
+          q.where('is_published', true)
+        })
+
+      const likedVideosData = likedVideos
+        .filter((l) => l.video)
+        .map((l) => {
+          const v = l.video!
+          return {
+            id: v.id,
+            title: v.title,
+            description: v.description,
+            filePath: getPublicUrl(v.filePath),
+            thumbnailPath: v.thumbnailPath ? getPublicUrl(v.thumbnailPath) : null,
+            durationSeconds: v.durationSeconds,
+            isPublished: v.isPublished,
+            region: v.region,
+            viewCount: v.viewCount,
+            likeCount: v.likeCount,
+            createdAt: v.createdAt,
+            userId: v.userId,
+          }
+        })
 
       return inertia.render('dashboard', {
         stats: {
@@ -179,6 +270,21 @@ router
           userId: v.userId,
           persons: v.persons.map((p) => ({ id: p.id, name: p.name })),
           transcription: v.transcriptions[0]?.transcriptionText || null,
+        })),
+        likedVideos: likedVideosData.map((v) => ({
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          filePath: v.filePath,
+          thumbnailPath: v.thumbnailPath,
+          durationSeconds: v.durationSeconds,
+          isPublished: v.isPublished,
+          region: v.region,
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          createdAt: v.createdAt,
+          userId: v.userId,
+          persons: [],
         })),
       })
     })
@@ -220,6 +326,13 @@ router
         },
         userId: auth.user!.id,
         likedVideoIds: Array.from(likedVideoIds),
+        auth: {
+          user: {
+            id: auth.user!.id,
+            fullName: auth.user!.fullName,
+          },
+          isLoggedIn: true,
+        },
       })
     })
 

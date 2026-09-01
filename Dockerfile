@@ -46,8 +46,8 @@ RUN mkdir -p /models && \
 # Copy application code
 COPY . .
 
-# Build the application (ignore pre-existing TypeScript errors)
-RUN pnpm run build --ignore-ts-errors
+# Build the application and fail the image build on TypeScript errors
+RUN pnpm run build
 
 # Set environment variables
 ENV NODE_ENV=production

@@ -191,7 +191,7 @@ export class WhisperCppTranscriptionService implements AITranscriptionService {
           else resolve(stdout.trim())
         })
       })
-      return parseFloat(result) || 0
+      return Number.parseFloat(result) || 0
     } catch {
       // Fallback: return 0 if ffprobe not available
       return 0

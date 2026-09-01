@@ -3,7 +3,6 @@
 
 try {
   const transmit = await import('@adonisjs/transmit/services/main')
-  const { HttpContext } = await import('@adonisjs/core/http')
 
   transmit.default.authorize<{ id: string }>('user/:id', (ctx: any, { id }) => {
     return ctx.auth.user?.id === Number(id)

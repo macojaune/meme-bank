@@ -31,59 +31,89 @@ interface VideoCardProps {
   onPersonClick?: (person: Person) => void
 }
 
-const REGIONS: Record<string, { name: string }> = {
-  guadeloupe: { name: 'Guadeloupe' },
-  martinique: { name: 'Martinique' },
-  guyane: { name: 'Guyane' },
-  reunion: { name: 'La Réunion' },
-  mayotte: { name: 'Mayotte' },
+const REGIONS: Record<string, { name: string; flag: string }> = {
+  guadeloupe: { name: 'GPE', flag: '🇬🇵' },
+  martinique: { name: 'MTQ', flag: '🇲🇶' },
+  guyane: { name: 'GUY', flag: '🇬🇫' },
+  reunion: { name: 'REU', flag: '🇷🇪' },
+  mayotte: { name: 'MAY', flag: '🇾🇹' },
 }
 
-function getRegionDisplay(regionId: string | null): string {
-  if (!regionId) return 'Autre'
-  return REGIONS[regionId]?.name || 'Autre'
+function getRegionDisplay(regionId: string | null): { name: string; flag: string } {
+  if (!regionId) return { name: 'AUTRE', flag: '🌴' }
+  return REGIONS[regionId] || { name: 'AUTRE', flag: '🌴' }
 }
 
-/**
- * Get the public URL for a thumbnail from MinIO
- * Thumbnails are stored as: thumbnails/{videoId}.jpg
- * SSR-safe: returns default URL during server-side rendering
- */
 function getThumbnailUrl(videoId: string): string {
-  // Default URL for SSR (server-side rendering)
   const defaultUrl = 'http://localhost:9000'
-
-  // Check if we're in the browser
   if (typeof window === 'undefined') {
     return `${defaultUrl}/memes/thumbnails/${videoId}.jpg`
   }
-
-  // In browser: use actual hostname
   const isLocalhost = window.location.hostname === 'localhost'
   const minioUrl = isLocalhost ? 'http://localhost:9000' : `http://${window.location.hostname}:9000`
-
   return `${minioUrl}/memes/thumbnails/${videoId}.jpg`
 }
 
-function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+function formatViewCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}k`
+  }
+  return count.toString()
 }
 
-/**
- * Animated loader component
- */
+const PlayIcon = () => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+)
+
+const EyeIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+const HeartIcon = ({ filled }: { filled: boolean }) => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+)
+
 function ProcessingLoader() {
   return (
     <div className="flex flex-col items-center justify-center gap-2">
       <div className="relative">
         <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg">⏳</span>
+          <span className="text-lg font-bold">⏳</span>
         </div>
       </div>
       <p className="text-sm font-bold text-black uppercase">Traitement...</p>
@@ -101,20 +131,24 @@ export default function VideoCard({
 }: VideoCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const isProcessing = !video.isPublished
   const persons = video.persons || []
-  const visiblePersons = persons.slice(0, 2)
-  const hiddenPersonsCount = persons.length - visiblePersons.length
+  const region = getRegionDisplay(video.region)
 
   return (
     <div
-      className={`card-neo-hover text-left w-full overflow-hidden ${
-        isProcessing ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'
+      className={`bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150 cursor-pointer overflow-hidden group ${
+        isProcessing
+          ? 'opacity-75'
+          : 'hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={() => !isProcessing && onVideoClick(video)}
     >
       {/* Thumbnail */}
-      <div className="aspect-video bg-gray-100 border-b-2 border-black relative overflow-hidden">
+      <div className="aspect-video bg-gray-100 relative overflow-hidden">
         {!imageError && (
           <img
             src={getThumbnailUrl(video.id)}
@@ -128,10 +162,10 @@ export default function VideoCard({
           />
         )}
 
-        {/* Placeholder shown while loading or on error */}
+        {/* Placeholder */}
         {(!imageLoaded || imageError) && (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-warm p-4 absolute inset-0">
-            <span className="text-5xl mb-2">🎬</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-yellow-300 to-pink-400 p-4 absolute inset-0">
+            <span className="text-4xl mb-2">🎬</span>
             <p className="text-sm font-bold text-center text-black uppercase line-clamp-2">
               {video.title}
             </p>
@@ -140,42 +174,40 @@ export default function VideoCard({
 
         {/* Processing overlay */}
         {isProcessing && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-10">
             <ProcessingLoader />
           </div>
         )}
 
-        {/* Play button overlay - only for published videos */}
+        {/* Play overlay - only for published videos */}
         {!isProcessing && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
-            <div className="w-16 h-16 bg-primary-400 flex items-center justify-center border-2 border-black shadow-neo">
-              <span className="text-2xl text-black">▶</span>
+          <div
+            className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <div className="w-20 h-20 bg-white border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <PlayIcon />
             </div>
           </div>
         )}
+
+        {/* Region badge */}
+        <div className="absolute top-2 left-2 px-2 py-1 bg-white border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          {region.flag} {region.name}
+        </div>
       </div>
 
       {/* Video Info */}
       <div className="p-4">
         <h3
-          className={`font-black truncate mb-2 uppercase ${isProcessing ? 'text-gray-500' : 'text-black'}`}
+          className={`font-black uppercase truncate mb-2 text-sm leading-tight ${isProcessing ? 'text-gray-500' : 'text-black'}`}
         >
           {video.title}
         </h3>
-        <div className="flex items-center justify-between text-sm mb-2">
-          <span className="badge-neo bg-secondary-300">{getRegionDisplay(video.region)}</span>
-          {isProcessing && (
-            <span className="badge-neo bg-yellow-400 text-black font-bold animate-pulse">
-              ⏳ TRAITEMENT
-            </span>
-          )}
-          <span className="font-medium text-gray-600">{formatDate(video.createdAt)}</span>
-        </div>
 
-        {/* Persons tags */}
+        {/* Tags */}
         {persons.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {visiblePersons.map((person) => (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {persons.slice(0, 3).map((person) => (
               <button
                 key={person.id}
                 type="button"
@@ -183,33 +215,41 @@ export default function VideoCard({
                   e.stopPropagation()
                   onPersonClick?.(person)
                 }}
-                className="px-2 py-0.5 bg-secondary-100 border border-black text-xs font-bold hover:bg-secondary-300 hover:shadow-neo transition-all cursor-pointer"
+                className="px-2 py-0.5 bg-cyan border-2 border-black text-xs font-bold hover:bg-black hover:text-white transition-colors"
               >
                 {person.name}
               </button>
             ))}
-            {hiddenPersonsCount > 0 && (
-              <span className="px-2 py-0.5 bg-gray-100 border border-gray-300 text-xs font-bold text-gray-600">
-                +{hiddenPersonsCount} autres
+            {persons.length > 3 && (
+              <span className="px-2 py-0.5 bg-gray-200 border-2 border-black text-xs font-bold text-gray-600">
+                +{persons.length - 3}
               </span>
             )}
           </div>
         )}
 
-        <div className="flex items-center gap-4 text-sm font-bold text-gray-600">
-          <span>{video.viewCount || 0} vues</span>
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-2 border-t-2 border-gray-100">
+          <div className="flex items-center gap-1 text-xs font-bold text-gray-600">
+            <EyeIcon />
+            <span>{formatViewCount(video.viewCount || 0)}</span>
+          </div>
+
           {!isProcessing && (
-            <div
+            <button
+              type="button"
               onClick={(e) => onLikeClick(video.id, e)}
-              className={`flex items-center gap-1 px-2 py-1 border-2 border-black ${
-                isLiked ? 'bg-red-100' : 'bg-white'
-              } text-black cursor-pointer hover:shadow-neo transition-shadow`}
-              role="button"
-              tabIndex={0}
+              className={`flex items-center gap-1 px-3 py-1 border-2 border-black font-bold text-sm transition-all ${
+                isLiked
+                  ? 'bg-red-500 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white text-black hover:bg-red-100'
+              }`}
             >
-              <span>{isLiked ? '❤️' : '🤍'}</span>
+              <span className={isLiked ? 'animate-pulse' : ''}>
+                <HeartIcon filled={isLiked} />
+              </span>
               <span>{video.likeCount || 0}</span>
-            </div>
+            </button>
           )}
         </div>
       </div>

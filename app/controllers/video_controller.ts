@@ -4,29 +4,32 @@ import Person from '#models/person'
 import Like from '#models/like'
 import drive from '@adonisjs/drive/services/main'
 import QueueService from '#services/queue_service'
-import queueConfig from '#config/queue'
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import { DateTime } from 'luxon'
 import emitter from '@adonisjs/core/services/emitter'
 import VideoUploaded from '#events/video_uploaded'
 import VideoDownloaded from '#events/video_downloaded'
-import ViewMilestoneReached from '#events/view_milestone_reached'
 
 export default class VideoUploadController {
   /**
    * Ensure bucket exists
    */
   private async ensureBucket() {
-    const { S3Client, CreateBucketCommand, BucketAlreadyOwnedByYou } = await import(
-      '@aws-sdk/client-s3'
-    )
+    const { S3Client, CreateBucketCommand } = await import('@aws-sdk/client-s3')
+    const accessKeyId = process.env.MINIO_ACCESS_KEY
+    const secretAccessKey = process.env.MINIO_SECRET_KEY
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error('Object storage credentials are not configured')
+    }
+
     const client = new S3Client({
       endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
       region: process.env.MINIO_REGION || 'us-east-1',
       credentials: {
-        accessKeyId: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-        secretAccessKey: process.env.MINIO_SECRET_KEY || 'minioadmin123',
+        accessKeyId,
+        secretAccessKey,
       },
       forcePathStyle: true,
     })
@@ -224,7 +227,7 @@ export default class VideoUploadController {
       video.viewCount++
       await video.save()
 
-      return response.redirect('/gallery') // was: response.ok({
+      return response.ok(video)
     } catch (error) {
       return response.redirect('/gallery') // was: notFound({
     }
@@ -283,6 +286,10 @@ export default class VideoUploadController {
     try {
       const video = await Video.findOrFail(params.id)
 
+      if (!video.isPublished && video.userId !== auth.user!.id) {
+        return response.forbidden({ error: 'This video is private' })
+      }
+
       // Increment view count when serving video
       video.viewCount++
       await video.save()
@@ -293,7 +300,7 @@ export default class VideoUploadController {
         expiresIn: '1h',
       })
 
-      return response.redirect('/gallery') // was: response.ok({
+      return response.ok({ url })
     } catch (error) {
       return response.internalServerError({
         error: 'Failed to generate signed URL',

@@ -1,19 +1,8 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import VideoCard from '../components/video_card.js'
-import VideoModal from '../components/video_modal.js'
-import SearchBar, { type SearchFilters } from '../components/search_bar.js'
+import VideoCard from '../components/video_card'
+import VideoModal from '../components/video_modal'
 import PointsToast from '../components/points_toast'
-import VideoUploadForm from '../components/video_upload_form.js'
-import Navigation from '../components/navigation'
-
-const UPLOAD_REGIONS = [
-  { id: 'guadeloupe', name: 'Guadeloupe' },
-  { id: 'martinique', name: 'Martinique' },
-  { id: 'guyane', name: 'Guyane' },
-  { id: 'reunion', name: 'La Réunion' },
-  { id: 'mayotte', name: 'Mayotte' },
-]
 
 interface Person {
   id: string
@@ -45,95 +34,84 @@ interface VideosResponse {
   }
 }
 
-const REGIONS: Record<string, { name: string }> = {
-  guadeloupe: { name: 'Guadeloupe' },
-  martinique: { name: 'Martinique' },
-  guyane: { name: 'Guyane' },
-}
-
 interface GalleryProps {
   videos: VideosResponse | null
   userId: string
   likedVideoIds: string[]
   auth: {
     user: {
+      id: number
       fullName: string
     }
+    isLoggedIn: boolean
   }
 }
 
-// Helper to get video stream URL
-const getVideoUrl = (videoId: string) => {
-  return `/videos/stream/${videoId}`
+interface FilterState {
+  query: string
+  region: string
+  sortBy: 'newest' | 'oldest' | 'views' | 'likes'
 }
 
-// Delete video handler
-const handleDeleteVideo = (videoId: string) => {
-  console.log('[Gallery] Attempting to delete video:', videoId)
+const REGIONS = [
+  { id: '', name: 'TOUS', flag: '🌴' },
+  { id: 'guadeloupe', name: 'GPE', flag: '🇬🇵' },
+  { id: 'martinique', name: 'MTQ', flag: '🇲🇶' },
+  { id: 'guyane', name: 'GUY', flag: '🇬🇫' },
+]
 
-  if (!confirm('Supprimer cette video ? Cette action est irreversible.')) {
-    return
-  }
+const SORT_OPTIONS = [
+  { id: 'newest', name: 'RECENTS', icon: '🕒' },
+  { id: 'likes', name: 'TOP RATED', icon: '⭐' },
+]
 
-  // Use Inertia router.delete() - handles CSRF, cookies, redirects automatically
-  router.delete(`/videos/${videoId}`, {
-    onSuccess: () => {
-      console.log('[Gallery] Video deleted successfully')
-      router.visit('/gallery')
-    },
-    onError: (errors) => {
-      console.error('[Gallery] Delete failed:', errors)
-      alert('Erreur lors de la suppression: ' + (errors.error || 'Erreur inconnue'))
-    },
-  })
-}
+const SearchIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.35-4.35" />
+  </svg>
+)
 
 export default function Gallery({ videos, userId, likedVideoIds, auth }: GalleryProps) {
   const [userLikes, setUserLikes] = useState<Set<string>>(new Set(likedVideoIds))
-  // Ensure videos are only loaded once on mount to prevent hydration issues
-  const [videoList, setVideoList] = useState<Video[]>(() => {
-    // Use function initializer to ensure stable initial state
-    return videos?.data ? [...videos.data] : []
-  })
+  const [videoList, setVideoList] = useState<Video[]>(() => (videos?.data ? [...videos.data] : []))
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(
     videos?.meta && videos.meta.currentPage < videos.meta.lastPage
   )
   const [loading, setLoading] = useState(false)
-
-  // Search states
-  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
-    query: '',
-    region: '',
-    persons: [],
-    sortBy: 'newest',
-  })
   const [isSearching, setIsSearching] = useState(false)
-
-  // Abort controller for cancelling pending requests
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const observerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Search videos
-  const performSearch = async (pageNum = 1, append = false, customFilters?: SearchFilters) => {
-    // Cancel previous request if exists
+  const [filters, setFilters] = useState<FilterState>({
+    query: '',
+    region: '',
+    sortBy: 'newest',
+  })
+
+  const performSearch = async (pageNum = 1, append = false) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
-
-    // Create new abort controller
     abortControllerRef.current = new AbortController()
-
-    // Use custom filters if provided, otherwise use current state
-    const filters = customFilters || searchFilters
 
     setIsSearching(true)
     try {
       const params = new URLSearchParams()
       if (filters.query) params.append('q', filters.query)
       if (filters.region) params.append('region', filters.region)
-      for (const person of filters.persons) {
-        params.append('personId', person.id)
-      }
       params.append('sortBy', filters.sortBy)
       params.append('page', pageNum.toString())
       params.append('limit', '20')
@@ -142,10 +120,7 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
         signal: abortControllerRef.current.signal,
       })
 
-      // Check if request was aborted
-      if (!response.ok) {
-        throw new Error('Search failed')
-      }
+      if (!response.ok) throw new Error('Search failed')
 
       const data = await response.json()
 
@@ -159,7 +134,6 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
         setHasMore(data.meta && pageNum < data.meta.lastPage)
       }
     } catch (error) {
-      // Don't log aborted requests as errors
       if (error instanceof Error && error.name !== 'AbortError') {
         console.error('Search error:', error)
       }
@@ -168,91 +142,29 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
     }
   }
 
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const observerRef = useRef<HTMLDivElement>(null)
-
-  // Upload states
-  const [dragActive, setDragActive] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const { data, setData, post, processing, reset } = useForm({
-    title: '',
-    description: '',
-    region: '',
-    video: null as File | null,
-  })
-
-  // Update URL based on current filters
-  const updateUrlWithFilters = (filters: SearchFilters) => {
-    const params = new URLSearchParams()
-    if (filters.query) params.append('q', filters.query)
-    if (filters.region) params.append('region', filters.region)
-    for (const person of filters.persons) {
-      params.append('personId', person.id)
-      params.append('personName', person.name)
-    }
-    if (filters.sortBy !== 'newest') params.append('sortBy', filters.sortBy)
-
-    const url = params.toString() ? `/gallery?${params}` : '/gallery'
-    window.history.pushState({}, '', url)
-  }
-
-  // Handle person click - add person to filters
-  const handlePersonClick = (person: Person) => {
-    // Replace current selection with clicked person (don't add to list)
-    const newFilters = {
-      ...searchFilters,
-      persons: [{ id: person.id, name: person.name }],
-    }
-
-    updateUrlWithFilters(newFilters)
-    setSearchFilters(newFilters)
-    setVideoList([])
-    setPage(1)
-    performSearch(1, false, newFilters)
-  }
-
-  // Handle video click - increment view count and open modal
   const handleVideoClick = async (video: Video) => {
-    // Increment view count via stream endpoint (which tracks views)
     fetch(`/videos/stream/${video.id}`).catch(() => {})
-    // Increment view count via stream endpoint (which tracks views)
-    fetch(`/videos/stream/${video.id}`).catch(() => {})
-
-    // Optimistically update view count locally
     setVideoList((prev) =>
       prev.map((v) => (v.id === video.id ? { ...v, viewCount: (v.viewCount || 0) + 1 } : v))
     )
-
-    // Update the selected video with new count
     const updatedVideo = { ...video, viewCount: (video.viewCount || 0) + 1 }
     setSelectedVideo(updatedVideo)
   }
 
-  // Toggle like on video
   const handleLike = useCallback(
     async (videoId: string, e: React.MouseEvent) => {
       e.stopPropagation()
-
       const videoIdStr = String(videoId)
       const isLiked = userLikes.has(videoIdStr)
 
-      // Optimistic update
-      setUserLikes((prev: Set<string>) => {
+      setUserLikes((prev) => {
         const newSet = new Set(prev)
-        if (isLiked) {
-          newSet.delete(videoIdStr)
-        } else {
-          newSet.add(videoIdStr)
-        }
+        isLiked ? newSet.delete(videoIdStr) : newSet.add(videoIdStr)
         return newSet
       })
 
-      setVideoList((prev: Video[]) =>
-        prev.map((v: Video) => {
+      setVideoList((prev) =>
+        prev.map((v) => {
           if (v.id === videoId) {
             return { ...v, likeCount: isLiked ? v.likeCount - 1 : v.likeCount + 1 }
           }
@@ -260,69 +172,47 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
         })
       )
 
-      // API call using fetch (not Inertia router) to avoid page reload
       try {
         const response = await fetch(`/api/v1/videos/${videoId}/like`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
         })
-
-        if (!response.ok) {
-          throw new Error('Like failed')
-        }
-
-        const data = await response.json()
-
-        // Update with server response if different
-        if (data.likeCount !== undefined) {
-          setVideoList((prev: Video[]) =>
-            prev.map((v: Video) => {
-              if (v.id === videoId) {
-                return { ...v, likeCount: data.likeCount }
-              }
-              return v
-            })
-          )
-        }
+        if (!response.ok) throw new Error('Like failed')
       } catch (error) {
         console.error('Like error:', error)
-        // Revert optimistic update on error
-        setUserLikes((prev: Set<string>) => {
+        setUserLikes((prev) => {
           const newSet = new Set(prev)
-          if (isLiked) {
-            newSet.add(videoIdStr)
-          } else {
-            newSet.delete(videoIdStr)
-          }
+          isLiked ? newSet.add(videoIdStr) : newSet.delete(videoIdStr)
           return newSet
         })
-
-        setVideoList((prev: Video[]) =>
-          prev.map((v: Video) => {
-            if (v.id === videoId) {
-              return { ...v, likeCount: isLiked ? v.likeCount + 1 : v.likeCount - 1 }
-            }
-            return v
-          })
-        )
       }
     },
     [userLikes]
   )
 
-  // Load more videos
+  const handlePersonClick = (person: Person) => {
+    setFilters((prev) => ({ ...prev, query: person.name }))
+    setVideoList([])
+    setPage(1)
+    performSearch(1, false)
+  }
+
+  const handleDeleteVideo = (videoId: string) => {
+    if (!confirm('Supprimer cette video ? Cette action est irreversible.')) return
+    router.delete(`/videos/${videoId}`, {
+      onSuccess: () => router.visit('/gallery'),
+      onError: (errors) => alert('Erreur: ' + (errors.error || 'Erreur inconnue')),
+    })
+  }
+
   const loadMoreVideos = useCallback(async () => {
     if (loading || !hasMore) return
     setLoading(true)
-
     try {
       const nextPage = page + 1
       const response = await fetch(`/api/v1/videos?page=${nextPage}&limit=20`)
       const data = await response.json()
-
       if (data.data && data.data.length > 0) {
         setVideoList((prev) => [...prev, ...data.data])
         setPage(nextPage)
@@ -331,54 +221,60 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
         setHasMore(false)
       }
     } catch (error) {
-      console.error('Error loading more videos:', error)
+      console.error('Error loading more:', error)
     } finally {
       setLoading(false)
     }
   }, [loading, hasMore, page])
 
-  // Infinite scroll observer - only enable after initial mount to prevent hydration issues
   const [isMounted, setIsMounted] = useState(false)
 
-  // Read URL params on mount and update filters
+  // Initial load - read URL params and perform search
   useEffect(() => {
-    setIsMounted(true)
-
-    // Parse URL query params
     const urlParams = new URLSearchParams(window.location.search)
-    const personIds = urlParams.getAll('personId')
-    const personNames = urlParams.getAll('personName')
-    const region = urlParams.get('region')
-    const query = urlParams.get('q')
-    const sortBy = (urlParams.get('sortBy') as SearchFilters['sortBy']) || 'newest'
+    const query = urlParams.get('q') || ''
+    const region = urlParams.get('region') || ''
+    const sortBy = (urlParams.get('sortBy') as FilterState['sortBy']) || 'newest'
 
-    // Build persons array from URL params
-    const persons: { id: string; name: string }[] = []
-    for (let i = 0; i < personIds.length; i++) {
-      if (personIds[i]) {
-        persons.push({
-          id: personIds[i],
-          name: personNames[i] || 'Personne',
-        })
-      }
-    }
-
-    // Update filters from URL
-    setSearchFilters({
-      query: query || '',
-      region: region || '',
-      persons,
+    setFilters({
+      query,
+      region,
       sortBy,
     })
 
-    // Initial search load
-    performSearch(1, false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Perform search with URL params directly
+    const doSearch = async () => {
+      const params = new URLSearchParams()
+      if (query) params.append('q', query)
+      if (region) params.append('region', region)
+      params.append('sortBy', sortBy)
+      params.append('page', '1')
+      params.append('limit', '20')
+
+      try {
+        setIsSearching(true)
+        const response = await fetch(`/api/v1/search?${params}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.data) {
+            setVideoList(data.data)
+            setPage(1)
+            setHasMore(data.meta && 1 < data.meta.lastPage)
+          }
+        }
+      } catch (error) {
+        console.error('Search error:', error)
+      } finally {
+        setIsSearching(false)
+        setIsMounted(true)
+      }
+    }
+
+    doSearch()
   }, [])
 
   useEffect(() => {
     if (!isMounted) return
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !isSearching) {
@@ -387,199 +283,188 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
       },
       { threshold: 0.1 }
     )
-
-    if (observerRef.current) {
-      observer.observe(observerRef.current)
-    }
-
+    if (observerRef.current) observer.observe(observerRef.current)
     return () => observer.disconnect()
-  }, [hasMore, loading, loadMoreVideos, isMounted])
+  }, [hasMore, loading, isMounted, page, isSearching])
 
-  // Polling for processing videos - update status every 5 seconds
-  useEffect(() => {
-    if (!isMounted) return
-
-    const processingVideos = videoList.filter((v) => !v.isPublished)
-    if (processingVideos.length === 0) return
-
-    const interval = setInterval(async () => {
-      try {
-        const videoIds = processingVideos.map((v) => v.id)
-        const response = await fetch('/api/v1/videos/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoIds }),
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-
-          // Update videos that are now complete
-          setVideoList((prev) =>
-            prev.map((video) => {
-              const status = data.data.find((s: any) => s.id === video.id)
-              if (status && status.isComplete && !video.isPublished) {
-                return { ...video, isPublished: true }
-              }
-              return video
-            })
-          )
-        }
-      } catch (error) {
-        console.error('Polling error:', error)
-      }
-    }, 5000) // Poll every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [videoList, isMounted])
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
-  const getRegionDisplay = (regionId: string) => {
-    const region = REGIONS[regionId]
-    return region ? region.name : 'Autre'
-  }
-
-  // Upload handlers
-  const handleDrag = useCallback((e: React.DragEvent) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    const files = e.dataTransfer.files
-    if (files && files[0]) {
-      handleFile(files[0])
-    }
-  }, [])
-
-  const handleFile = (file: File) => {
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/quicktime']
-    if (!allowedTypes.includes(file.type)) {
-      alert('Format video non supporte')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Fichier trop volumineux. Max 10MB.')
-      return
-    }
-    setSelectedFile(file)
-    setData('video', file)
-    if (!data.title) {
-      const fileName = file.name.replace(/\.[^/.]+$/, '')
-      setData('title', fileName)
-    }
+    setVideoList([])
+    setPage(1)
+    performSearch(1, false)
   }
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files[0]) {
-      handleFile(files[0])
-    }
-  }
-
-  const handleUploadSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedFile) {
-      alert('Selectionnez une video')
-      return
-    }
-    if (!data.title.trim()) {
-      alert('Donnez un titre')
-      return
-    }
-    post('/videos/upload', {
-      onProgress: (progress) => {
-        if (progress && progress.total && progress.total > 0) {
-          setUploadProgress(progress.loaded / progress.total)
-        }
-      },
-      onSuccess: (page) => {
-        reset()
-        setSelectedFile(null)
-        setUploadProgress(0)
-        setShowUploadModal(false)
-
-        // Add the new video to the list immediately
-        const newVideo = page.props.data as Video
-        if (newVideo) {
-          setVideoList((prev) => [newVideo, ...prev])
-        }
-      },
-      onError: () => {
-        setUploadProgress(0)
-      },
-    })
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   return (
     <>
-      <Head title="Gallery" />
-      <div className="min-h-screen bg-bg">
-        <Navigation user={{ fullName: auth.user.fullName }} isLoggedIn={true} />
+      <Head title="Gallery - Meme Bank" />
+      <div className="min-h-screen bg-white">
+        {/* HEADER */}
+        <header className="sticky top-0 z-40 bg-white border-b-4 border-black">
+          <div className="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
+            <Link
+              href="/"
+              className="text-2xl md:text-3xl font-black uppercase tracking-tight hover:opacity-70 transition-opacity"
+            >
+              MEME BANK
+            </Link>
 
-        {/* Search Bar */}
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-0">
-          <SearchBar
-            filters={searchFilters}
-            onChange={setSearchFilters}
-            onSearch={(filters) => {
-              const filtersToUse = filters || searchFilters
-              if (filters) {
-                setSearchFilters(filters)
-              }
-              updateUrlWithFilters(filtersToUse)
-              performSearch(1, false, filtersToUse)
-            }}
-            regions={UPLOAD_REGIONS}
-          />
-        </div>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/upload"
+                className="hidden sm:block bg-yellow-400 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all"
+              >
+                DROP UN MEME
+              </Link>
 
-        {/* Video Grid */}
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {/* Searching indicator - shows above results */}
+              {/* User Avatar */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="w-10 h-10 bg-white border-4 border-black rounded-full font-black text-sm flex items-center justify-center hover:bg-gray-100 transition-colors"
+                >
+                  {getInitials(auth.user.fullName)}
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 top-12 bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] min-w-[160px] z-50">
+                    <Link
+                      href="/dashboard"
+                      className="block px-4 py-2 font-bold hover:bg-gray-100 border-b-2 border-black"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false)
+                        router.post('/logout')
+                      }}
+                      className="w-full text-left px-4 py-2 font-bold hover:bg-gray-100 text-left"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* COMMAND CENTER */}
+          <div className="max-w-full mx-auto px-4 pb-4">
+            {/* Search Bar */}
+            <form onSubmit={handleSearchSubmit} className="mb-4">
+              <div className="flex">
+                <div className="flex-1 bg-white border-4 border-black border-r-0 p-1">
+                  <div className="flex items-center h-full px-3">
+                    <SearchIcon />
+                    <input
+                      type="text"
+                      value={filters.query}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))}
+                      placeholder="Cherche une punchline, un mood, un mot créole..."
+                      className="flex-1 px-3 py-2 font-medium focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="bg-black text-white border-4 border-black px-6 font-black uppercase hover:bg-gray-800 transition-colors"
+                >
+                  CHERCHER
+                </button>
+              </div>
+            </form>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Regions */}
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {REGIONS.map((region) => (
+                  <button
+                    key={region.id}
+                    onClick={() => {
+                      setFilters((prev) => ({ ...prev, region: region.id }))
+                      setVideoList([])
+                      setPage(1)
+                      performSearch(1, false)
+                    }}
+                    className={`px-3 py-1.5 border-2 border-black font-bold text-xs uppercase whitespace-nowrap transition-all ${
+                      filters.region === region.id || (region.id === '' && filters.region === '')
+                        ? 'bg-black text-white'
+                        : 'bg-white hover:bg-gray-100'
+                    }`}
+                  >
+                    {region.flag} {region.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-px h-6 bg-black hidden sm:block"></div>
+
+              {/* Sort */}
+              <div className="flex gap-1">
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => {
+                      setFilters((prev) => ({
+                        ...prev,
+                        sortBy: option.id as FilterState['sortBy'],
+                      }))
+                      setVideoList([])
+                      setPage(1)
+                      performSearch(1, false)
+                    }}
+                    className={`px-3 py-1.5 border-2 border-black font-bold text-xs uppercase whitespace-nowrap transition-all ${
+                      filters.sortBy === option.id
+                        ? 'bg-black text-white'
+                        : 'bg-white hover:bg-gray-100'
+                    }`}
+                  >
+                    {option.icon} {option.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* MAIN CONTENT */}
+        <main className="max-w-full mx-auto px-4 py-6">
+          {/* Loading indicator */}
           {isSearching && videoList.length > 0 && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="mb-4 flex items-center gap-2 text-sm font-bold">
+              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
               <span>Recherche en cours...</span>
             </div>
           )}
 
+          {/* Empty State */}
           {videoList.length === 0 && !isSearching ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🎭</div>
-              <h2 className="text-xl font-bold text-black mb-2">Aucune video</h2>
-              <p className="text-gray-600 mb-4">Soyez le premier a upload un meme!</p>
-              <Link href="/upload" className="btn-neo btn-neo-primary text-sm px-4 py-2">
-                📤 Upload
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">🎬</div>
+              <h2 className="text-2xl font-black uppercase mb-2">Aucune video</h2>
+              <p className="text-gray-600 mb-6">Sois le premier a poster un meme!</p>
+              <Link
+                href="/upload"
+                className="bg-yellow-400 border-4 border-black px-6 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all inline-block"
+              >
+                UPLOAD
               </Link>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Video Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {videoList.map((video) => (
                   <VideoCard
                     key={video.id}
@@ -593,24 +478,24 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
                 ))}
               </div>
 
-              {/* Loading indicator */}
+              {/* Loading more */}
               {loading && (
                 <div className="text-center py-8">
-                  <div className="inline-flex items-center justify-center gap-1">
-                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse" />
-                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse delay-75" />
-                    <div className="w-3 h-3 bg-primary-400 border-2 border-black shadow-neo animate-pulse delay-150" />
+                  <div className="inline-flex items-center gap-1">
+                    <div className="w-3 h-3 bg-yellow-400 border-2 border-black animate-pulse"></div>
+                    <div className="w-3 h-3 bg-yellow-400 border-2 border-black animate-pulse delay-75"></div>
+                    <div className="w-3 h-3 bg-yellow-400 border-2 border-black animate-pulse delay-150"></div>
                   </div>
-                  <p className="text-gray-600 mt-3 font-bold uppercase text-sm">Chargement...</p>
                 </div>
               )}
 
-              {/* Observer target - only render after mount to prevent hydration issues */}
-              {isMounted && hasMore && !loading && <div ref={observerRef} className="h-4" />}
+              {/* Observer target */}
+              {isMounted && hasMore && !loading && <div ref={observerRef} className="h-4"></div>}
             </>
           )}
-        </div>
+        </main>
 
+        {/* Video Modal */}
         <VideoModal
           video={selectedVideo}
           userId={userId}
@@ -619,41 +504,10 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
           onPersonClick={handlePersonClick}
         />
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-            <div className="card-neo max-w-2xl w-full max-h-[90vh] overflow-auto bg-white relative">
-              <button
-                type="button"
-                onClick={() => setShowUploadModal(false)}
-                className="absolute -top-4 -right-4 btn-neo-brick w-10 h-10 flex items-center justify-center z-[60]"
-              >
-                ✕
-              </button>
-
-              <VideoUploadForm
-                onUpload={(formData) => {
-                  fetch('/videos/upload', {
-                    method: 'POST',
-                    body: formData,
-                  }).then((response) => {
-                    if (response.ok) {
-                      setShowUploadModal(false)
-                      // Refresh the video list
-                      performSearch(1, false)
-                    }
-                  })
-                }}
-                onCancel={() => setShowUploadModal(false)}
-                isProcessing={false}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Footer */}
-        <footer className="mt-16 p-4 border-t-3 border-black bg-white text-center">
-          <p className="text-sm font-bold text-gray-600 uppercase">🎭 Caribbean Meme Bank v1.0</p>
+        <footer className="border-t-4 border-black py-8 text-center bg-white">
+          <p className="font-black text-4xl md:text-6xl uppercase tracking-tighter">MEME BANK</p>
+          <p className="text-sm text-gray-500 mt-2">Caribbean Meme Bank</p>
         </footer>
 
         <PointsToast userId={userId} />

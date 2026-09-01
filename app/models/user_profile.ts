@@ -10,7 +10,7 @@ export default class UserProfile extends BaseModel {
 
   @column()
   declare userId: string
-  
+
   @beforeCreate()
   static assignUuid(userProfile: UserProfile) {
     userProfile.id = uuidv4()

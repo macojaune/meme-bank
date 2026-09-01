@@ -11,7 +11,7 @@ export default class Playlist extends BaseModel {
 
   @column()
   declare userId: string
-  
+
   @beforeCreate()
   static assignUuid(playlist: Playlist) {
     playlist.id = uuidv4()

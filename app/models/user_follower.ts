@@ -13,7 +13,7 @@ export default class UserFollower extends BaseModel {
 
   @column()
   declare followingId: string
-  
+
   @beforeCreate()
   static assignUuid(userFollower: UserFollower) {
     userFollower.id = uuidv4()

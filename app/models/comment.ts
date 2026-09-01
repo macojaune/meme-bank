@@ -17,7 +17,7 @@ export default class Comment extends BaseModel {
 
   @column()
   declare parentId: string | null
-  
+
   @beforeCreate()
   static assignUuid(comment: Comment) {
     comment.id = uuidv4()

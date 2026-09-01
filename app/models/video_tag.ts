@@ -14,7 +14,7 @@ export default class VideoTag extends BaseModel {
 
   @column()
   declare tagId: string
-  
+
   @beforeCreate()
   static assignUuid(videoTag: VideoTag) {
     videoTag.id = uuidv4()

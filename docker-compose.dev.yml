@@ -86,6 +86,9 @@ services:
       - WHISPER_CLI_PATH=/usr/local/bin/whisper-cli
       - OLLAMA_URL=http://host.docker.internal:11434
       - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - BREVO_BETA_LIST_ID=${BREVO_BETA_LIST_ID:-20}
+      - BREVO_WELCOME_TEMPLATE_ID=${BREVO_WELCOME_TEMPLATE_ID:-14}
     depends_on:
       - postgres
       - redis

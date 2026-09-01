@@ -3,7 +3,6 @@ import type { TranscriptionJobData, JobResult } from './types.js'
 import { getAIServiceFactory } from '../services/ai/ai_factory.js'
 import VideoTranscription, { TranscriptionStatus } from '../models/video_transcription.js'
 import QueueService from '../services/queue_service.js'
-import queueConfig from '#config/queue'
 import { DateTime } from 'luxon'
 import Video from '../models/video.js'
 
@@ -174,7 +173,6 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
  * Create and start the transcription worker
  */
 export async function createTranscriptionWorker() {
-  const { default: QueueService } = await import('../services/queue_service.js')
   const queueService = new QueueService()
 
   return queueService.createWorker(

@@ -10,7 +10,7 @@ export default class VideoMetadata extends BaseModel {
 
   @column()
   declare videoId: string
-  
+
   @beforeCreate()
   static assignUuid(videoMetadata: VideoMetadata) {
     videoMetadata.id = uuidv4()

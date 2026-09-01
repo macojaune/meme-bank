@@ -13,7 +13,7 @@ export default class Subscription extends BaseModel {
 
   @column()
   declare creatorId: string
-  
+
   @beforeCreate()
   static assignUuid(subscription: Subscription) {
     subscription.id = uuidv4()
