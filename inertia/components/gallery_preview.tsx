@@ -175,7 +175,7 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                       preload="metadata"
                       poster={video.thumbnailPath ?? undefined}
                       src={video.filePath}
-                      className="aspect-video w-full border-b-4 border-black bg-black object-cover"
+                      className="aspect-video w-full border-b-4 border-black bg-black object-contain"
                       aria-label={`Lire ${video.title}`}
                     />
                     <div className="p-4">

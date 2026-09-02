@@ -106,9 +106,7 @@ export default function Home({
                   <Link href="/gallery" className="hidden px-2 py-2 hover:underline md:inline">Galerie</Link>
                   <Link href="/dashboard" className="btn-neo-ghost px-3 py-2">Mon compte</Link>
                 </>
-              ) : (
-                <Link href="/login" className="hidden px-2 py-2 hover:underline sm:inline">Se connecter</Link>
-              )}
+              ) : null}
               <a href="#waitlist" className="btn-neo-yellow whitespace-nowrap px-3 py-2 sm:px-4">Rejoindre la bêta</a>
             </div>
           </nav>
@@ -241,6 +239,17 @@ export default function Home({
         </main>
 
         <footer className="bg-black px-4 py-10 text-white">
+          <p className="mb-8 text-center text-sm font-bold sm:text-base">
+            Posté entre 2 scroll par{' '}
+            <a
+              href="https://marvinl.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#ffd600] underline decoration-2 underline-offset-4 hover:text-[#22d3ee]"
+            >
+              MarvinL.com
+            </a>
+          </p>
           <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <p className="text-3xl font-black uppercase tracking-[-0.04em]">MemeBank</p>
             <div className="text-sm font-semibold text-neutral-300 sm:text-right">
