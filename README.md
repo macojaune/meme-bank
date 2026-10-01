@@ -74,6 +74,27 @@ Event listeners in [`start/events.ts`](/Users/marvinl/Documents/DEV/meme-bank/st
 
 Points-earned events are broadcast over Transmit for per-user toast notifications.
 
+## Analytics
+
+Umami is loaded once from the shared Edge layout using the MemeBank website ID
+`843431ff-54a3-4b20-bcd6-00d495adc690` on `https://analytics.macojaune.com`.
+It automatically tracks page visits, including client-side navigation.
+
+Launch funnel events:
+
+- `beta_cta_click`, `preview_click`: include `location` (`header` or `hero`)
+- `questionnaire_click`: direct link to Tally, not questionnaire completion
+- `waitlist_submit`, `waitlist_success`, `waitlist_error`: signup attempt and API outcome
+- `preview_search`: once per mounted preview, without the search text
+- `preview_filter`: selected `region`, with `all` for no territory filter
+- `preview_filters_reset`: reset the preview filters
+- `preview_video_play`: first play per video per mounted preview, with `video_id`
+
+No form email, search text, or raw error message is sent in custom events. URL query
+strings and fragments are excluded from tracking. Missing or blocked analytics never
+interrupts the app. The script is also enabled locally, so localhost checks can appear
+in Umami; filter out localhost when reviewing launch traffic.
+
 ## Local Development
 
 ### Required services

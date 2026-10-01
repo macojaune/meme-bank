@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { trackEvent } from '../utils/analytics'
 
 export interface PreviewVideo {
   id: string
@@ -58,6 +59,8 @@ function SearchIcon() {
 export default function GalleryPreview({ videos }: GalleryPreviewProps) {
   const [query, setQuery] = useState('')
   const [region, setRegion] = useState('')
+  const searchTrackedRef = useRef(false)
+  const playedVideosRef = useRef(new Set<string>())
 
   const filteredVideos = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('fr')
@@ -134,7 +137,13 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                     id="preview-search"
                     type="search"
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value)
+                      if (event.target.value.trim() && !searchTrackedRef.current) {
+                        searchTrackedRef.current = true
+                        void trackEvent('preview_search')
+                      }
+                    }}
                     placeholder="Une punchline, un nom, un territoire…"
                     className="min-w-0 flex-1 px-1 py-3 text-sm font-bold outline-none sm:px-2 sm:text-base"
                   />
@@ -149,7 +158,12 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                       key={previewRegion.id}
                       type="button"
                       aria-pressed={region === previewRegion.id}
-                      onClick={() => setRegion(previewRegion.id)}
+                      onClick={() => {
+                        if (region !== previewRegion.id) {
+                          void trackEvent('preview_filter', { region: previewRegion.id || 'all' })
+                        }
+                        setRegion(previewRegion.id)
+                      }}
                       className={`shrink-0 border-2 border-black px-3 py-1.5 text-xs font-black uppercase transition-colors focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#22d3ee] ${
                         region === previewRegion.id
                           ? 'bg-black text-white'
@@ -175,6 +189,11 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                       preload="metadata"
                       poster={video.thumbnailPath ?? undefined}
                       src={video.filePath}
+                      onPlay={() => {
+                        if (playedVideosRef.current.has(video.id)) return
+                        playedVideosRef.current.add(video.id)
+                        void trackEvent('preview_video_play', { video_id: video.id })
+                      }}
                       className="aspect-video w-full border-b-4 border-black bg-black object-contain"
                       aria-label={`Lire ${video.title}`}
                     />
@@ -206,6 +225,7 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                     <button
                       type="button"
                       onClick={() => {
+                        void trackEvent('preview_filters_reset')
                         setQuery('')
                         setRegion('')
                       }}

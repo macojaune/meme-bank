@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react'
 import { FormEvent, useRef, useState } from 'react'
 import GalleryPreview, { type PreviewVideo } from '../components/gallery_preview'
+import { trackEvent } from '../utils/analytics'
 
 interface LeaderboardEntry {
   rank: number
@@ -53,6 +54,7 @@ export default function Home({
     submittingRef.current = true
     setSignupState('loading')
     setSignupMessage('')
+    if (!website) void trackEvent('waitlist_submit')
 
     try {
       const response = await fetch('/waitlist', {
@@ -68,11 +70,13 @@ export default function Home({
 
       if (!response.ok) throw new Error(payload.message ?? 'La préinscription a échoué.')
 
+      if (!website) void trackEvent('waitlist_success')
       setSignupState('success')
       setSignupMessage('Ton adresse est enregistrée. Le questionnaire est aussi dans ton email.')
       setEmail('')
       setConsent(false)
     } catch (error) {
+      if (!website) void trackEvent('waitlist_error')
       setSignupState('error')
       setSignupMessage(
         error instanceof Error ? error.message : 'La préinscription a échoué. Réessaie dans un instant.'
@@ -100,14 +104,14 @@ export default function Home({
               MemeBank
             </Link>
             <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase sm:text-sm">
-              <a href="#preview" className="hidden px-2 py-2 hover:underline sm:inline">Voir les mèmes</a>
+              <a href="#preview" data-umami-event="preview_click" data-umami-event-location="header" className="hidden px-2 py-2 hover:underline sm:inline">Voir les mèmes</a>
               {auth?.isLoggedIn ? (
                 <>
                   <Link href="/gallery" className="hidden px-2 py-2 hover:underline md:inline">Galerie</Link>
                   <Link href="/dashboard" className="btn-neo-ghost px-3 py-2">Mon compte</Link>
                 </>
               ) : null}
-              <a href="#waitlist" className="btn-neo-yellow whitespace-nowrap px-3 py-2 sm:px-4">Rejoindre la bêta</a>
+              <a href="#waitlist" data-umami-event="beta_cta_click" data-umami-event-location="header" className="btn-neo-yellow whitespace-nowrap px-3 py-2 sm:px-4">Rejoindre la bêta</a>
             </div>
           </nav>
         </header>
@@ -125,10 +129,10 @@ export default function Home({
                   MemeBank rassemble les mèmes vidéo des Antilles-Guyane pour les retrouver, les regarder et les transmettre sans perdre la rèf.
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-                  <a href="#waitlist" className="btn-neo-yellow inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
+                  <a href="#waitlist" data-umami-event="beta_cta_click" data-umami-event-location="hero" className="btn-neo-yellow inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
                     Rejoindre la bêta <ArrowIcon />
                   </a>
-                  <a href="#preview" className="btn-neo-ghost inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
+                  <a href="#preview" data-umami-event="preview_click" data-umami-event-location="hero" className="btn-neo-ghost inline-flex items-center justify-center gap-2 px-6 py-4 font-black uppercase">
                     Voir l’aperçu
                   </a>
                 </div>
@@ -162,6 +166,8 @@ export default function Home({
                 </p>
                 <a
                   href="https://tally.so/r/0QWer6?source=landing-direct&utm_source=memebank&utm_medium=website&utm_campaign=beta"
+                  data-umami-event="questionnaire_click"
+                  data-umami-event-location="waitlist"
                   target="_blank"
                   rel="noreferrer"
                   className="mt-6 inline-block font-black underline decoration-4 underline-offset-4 hover:no-underline"
