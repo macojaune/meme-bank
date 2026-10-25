@@ -49,8 +49,18 @@ export default class WaitlistController {
     }
 
     const apiKey = env.get('BREVO_API_KEY')
-    if (!apiKey) {
-      logger.error('BREVO_API_KEY is missing; waitlist signup is unavailable')
+    const listId = env.get('BREVO_BETA_LIST_ID')
+    const templateId = env.get('BREVO_WELCOME_TEMPLATE_ID')
+    if (
+      !apiKey ||
+      !listId ||
+      !Number.isSafeInteger(listId) ||
+      listId <= 0 ||
+      !templateId ||
+      !Number.isSafeInteger(templateId) ||
+      templateId <= 0
+    ) {
+      logger.error('Brevo waitlist configuration is missing or invalid; signup is unavailable')
       return response.serviceUnavailable({
         message: 'La préinscription est momentanément indisponible. Réessaie un peu plus tard.',
       })
@@ -59,8 +69,8 @@ export default class WaitlistController {
     try {
       const service = createWaitlistService({
         apiKey,
-        listId: env.get('BREVO_BETA_LIST_ID', 20),
-        templateId: env.get('BREVO_WELCOME_TEMPLATE_ID', 14),
+        listId,
+        templateId,
       })
       const { questionnaireUrl } = await service.subscribe(data.email)
 
