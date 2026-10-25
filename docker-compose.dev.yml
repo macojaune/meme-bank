@@ -87,8 +87,9 @@ services:
       - OLLAMA_URL=http://host.docker.internal:11434
       - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
       - BREVO_API_KEY=${BREVO_API_KEY:-}
-      - BREVO_BETA_LIST_ID=${BREVO_BETA_LIST_ID:-20}
-      - BREVO_WELCOME_TEMPLATE_ID=${BREVO_WELCOME_TEMPLATE_ID:-14}
+      # IDs belong to the account behind BREVO_API_KEY; never default to another audience.
+      - BREVO_BETA_LIST_ID=${BREVO_BETA_LIST_ID:-}
+      - BREVO_WELCOME_TEMPLATE_ID=${BREVO_WELCOME_TEMPLATE_ID:-}
     depends_on:
       - postgres
       - redis

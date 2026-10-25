@@ -180,8 +180,18 @@ Additional variables are used by config and jobs even though they are not valida
 - `OLLAMA_URL`, `OLLAMA_TRANSCRIPTION_MODEL`, `OLLAMA_EMBEDDING_MODEL`
 - `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_EMBEDDING_MODEL`
 - `BREVO_API_KEY`: server-only key for waitlist contact sync and welcome delivery
-- `BREVO_BETA_LIST_ID`: beta tester list ID (currently `20`)
-- `BREVO_WELCOME_TEMPLATE_ID`: active welcome template ID (currently `14`)
+- `BREVO_BETA_LIST_ID`: explicitly verified beta tester list ID in the account behind the API key
+- `BREVO_WELCOME_TEMPLATE_ID`: explicitly verified active welcome template ID in that same account
+
+There are no default destination IDs. Missing, non-positive or non-integer IDs disable signup
+with HTTP 503 before any provider call; non-numeric environment values fail startup validation.
+Before configuring a deployment, read the account identity,
+list name and template content using that deployment's key. Numeric IDs are account-specific.
+On 25 October 2026, `memebank-web-dev` used the `marvinl.com` account (`hello@marvinl.com`),
+list `10` named `Bêta testeurs MemeBank`, and active template `14` named
+`MemeBank : bienvenue bêta`. Its existing configuration is correct. The historical list
+`20` now belongs to another audience in that account; do not copy it from old launch notes.
+These observations document that deployment, not defaults for other accounts.
 
 The welcome email links to the published beta questionnaire at
 [`https://tally.so/r/0QWer6`](https://tally.so/r/0QWer6). Keep the Brevo API key server-side and

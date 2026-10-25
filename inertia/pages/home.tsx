@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react'
 import { FormEvent, useRef, useState } from 'react'
 import GalleryPreview, { type PreviewVideo } from '../components/gallery_preview'
 import { trackEvent } from '../utils/analytics'
+import { submitWaitlist } from '../utils/waitlist'
 
 interface LeaderboardEntry {
   rank: number
@@ -57,18 +58,7 @@ export default function Home({
     if (!website) void trackEvent('waitlist_submit')
 
     try {
-      const response = await fetch('/waitlist', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'content-type': 'application/json',
-          'x-xsrf-token': csrfToken(),
-        },
-        body: JSON.stringify({ email, consent, website }),
-      })
-      const payload = (await response.json()) as { message?: string }
-
-      if (!response.ok) throw new Error(payload.message ?? 'La préinscription a échoué.')
+      await submitWaitlist({ email, consent, website }, csrfToken())
 
       if (!website) void trackEvent('waitlist_success')
       setSignupState('success')
