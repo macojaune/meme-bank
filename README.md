@@ -318,3 +318,7 @@ Current search behavior is database-backed, not vector-backed:
 - [`app/jobs/transcription_job.ts`](/Users/marvinl/Documents/DEV/meme-bank/app/jobs/transcription_job.ts)
 - [`app/jobs/thumbnail_job.ts`](/Users/marvinl/Documents/DEV/meme-bank/app/jobs/thumbnail_job.ts)
 - [`docker-compose.dev.yml`](/Users/marvinl/Documents/DEV/meme-bank/docker-compose.dev.yml)
+
+### Invitations à la bêta
+
+La préinscription publique ne donne pas automatiquement accès à l’application. L’émission manuelle, la révocation et la recette du flux d’invitation sont décrites dans [docs/beta-invitations.md](docs/beta-invitations.md).
