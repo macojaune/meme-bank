@@ -77,7 +77,8 @@ router.post('/waitlist', '#controllers/waitlist_controller.store')
 router
   .group(() => {
     router.on('/login').renderInertia('auth/login')
-    router.on('/register').renderInertia('auth/register')
+    router.get('/register', '#controllers/auth_controller.showRegister')
+    router.post('/register/invitation', '#controllers/auth_controller.acceptInvitation')
     router.on('/forgot-password').renderInertia('auth/forgot-password')
     router.get('/reset-password', async ({ request, response }) => {
       const token = request.qs().token
