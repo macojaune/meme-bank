@@ -54,9 +54,15 @@ test.group('Beta invitations — isolated PostgreSQL and real HTTP', (group) => 
         unknown
       >
     }
-    async request(path: string, data?: object, csrf = true, inertia = true): Promise<Response> {
+    async request(
+      path: string,
+      data?: object,
+      csrf = true,
+      inertia = true,
+      accept = inertia ? 'text/html, application/xhtml+xml' : 'application/json'
+    ): Promise<Response> {
       const headers: Record<string, string> = {
-        accept: inertia ? 'text/html, application/xhtml+xml' : 'application/json',
+        accept,
         cookie: [...this.cookies].map(([key, value]) => `${key}=${value}`).join('; '),
       }
       if (inertia) headers['x-inertia'] = 'true'
@@ -79,7 +85,7 @@ test.group('Beta invitations — isolated PostgreSQL and real HTTP', (group) => 
       // Negotiate the actual served asset version; do not disable Inertia's version guard.
       if (response.status === 409 && !this.version && !data) {
         this.version = ((await response.json()) as { version: string }).version
-        return this.request(path, data, csrf, inertia)
+        return this.request(path, data, csrf, inertia, accept)
       }
       return response
     }
@@ -442,6 +448,158 @@ test.group('Beta invitations — isolated PostgreSQL and real HTTP', (group) => 
     assert.isNotNull(await User.findBy('email', 'csrf@example.invalid'))
   })
 
+  const representations = [
+    { name: 'JSON', inertia: false, accept: 'application/json' },
+    { name: 'HTML', inertia: false, accept: 'text/html' },
+    { name: 'Inertia', inertia: true, accept: 'text/html, application/xhtml+xml' },
+  ]
+  for (const suffix of ['', '/']) {
+    for (const representation of representations) {
+      for (const endpoint of ['/register', '/register/invitation']) {
+        const path = `${endpoint}${suffix}`
+        test(`CSRF privacy matrix: ${path} ${representation.name}`, async ({ assert }) => {
+          const email = `csrf-${endpoint.endsWith('invitation') ? 'exchange' : 'register'}-${suffix ? 'slash' : 'plain'}-${representation.name.toLowerCase()}@example.invalid`
+          const issued = await service.issue(email)
+          const browser = new Browser()
+          const exchange = await browser.invitation(issued.token)
+          assert.equal(exchange.status, 200)
+          const before = await counts()
+          const rejectedInput = {
+            ...registration(email),
+            passwordConfirmation: 'Distinct rejected confirmation',
+            token: issued.token,
+            unexpectedSecret: 'Extra submitted input must not be flashed',
+          }
+          const refused = await browser.request(
+            path,
+            rejectedInput,
+            false,
+            representation.inertia,
+            representation.accept
+          )
+          // Never print a decrypted session or an input value, even on a failing regression.
+          const session = browser.session()
+          for (const value of Object.values(rejectedInput))
+            assert.isFalse(JSON.stringify(session).includes(value), 'No submitted input in session')
+          assert.isTrue(
+            session.betaInvitationHash === BetaInvitationService.hashToken(issued.token)
+          )
+          const refusalBody = await refused.text()
+          for (const value of Object.values(rejectedInput))
+            assert.isFalse(refusalBody.includes(value), 'No submitted input in response')
+          if (endpoint === '/register' && representation.inertia) {
+            assert.equal(refused.status, 302)
+            assert.equal(refused.headers.get('location'), '/register')
+            const pageResponse = await browser.request('/register')
+            const page = (await pageResponse.json()) as any
+            assert.deepEqual(Object.keys(page.props.errors), ['general'])
+            assert.include(page.props.errors.general, 'session a expiré')
+          } else {
+            assert.equal(refused.status, 403)
+            assert.include(refused.headers.get('content-type') ?? '', 'application/json')
+            assert.deepEqual(Object.keys(JSON.parse(refusalBody)), ['message'])
+          }
+          assert.deepEqual(await counts(), before)
+          assert.isNull(await User.findBy('email', email))
+          const invitationAfterRefusal = await BetaInvitation.findOrFail(issued.id)
+          assert.isNull(invitationAfterRefusal.redeemedAt)
+          await noAuthenticatedSession(browser, assert)
+          if (endpoint === '/register/invitation') {
+            const acceptedExchange = await browser.request(
+              path,
+              { token: issued.token },
+              true,
+              representation.inertia,
+              representation.accept
+            )
+            assert.equal(acceptedExchange.status, 200)
+          }
+          const retry = await browser.request(
+            `/register${suffix}`,
+            { ...registration(email), passwordConfirmation: password },
+            true,
+            representation.inertia,
+            representation.accept
+          )
+          assert.equal(retry.status, 302)
+          assert.equal(retry.headers.get('location'), '/dashboard')
+          assert.isNotNull(await User.findBy('email', email))
+          const invitationAfterRetry = await BetaInvitation.findOrFail(issued.id)
+          assert.isNotNull(invitationAfterRetry.redeemedAt)
+        })
+      }
+      test(`Validation privacy matrix: /register${suffix} ${representation.name}`, async ({
+        assert,
+      }) => {
+        const email = `validation-${suffix ? 'slash' : 'plain'}-${representation.name.toLowerCase()}@example.invalid`
+        const issued = await service.issue(email)
+        const browser = new Browser()
+        const exchange = await browser.invitation(issued.token)
+        assert.equal(exchange.status, 200)
+        const before = await counts()
+        const rejectedInput = {
+          ...registration(email),
+          password: 'short',
+          passwordConfirmation: 'Distinct invalid confirmation',
+          token: issued.token,
+          unexpectedSecret: 'Extra validation input must not be flashed',
+        }
+        // True HTML negotiation without X-Inertia or Referer must be safe as well.
+        const refused = await browser.request(
+          `/register${suffix}`,
+          rejectedInput,
+          true,
+          representation.inertia,
+          representation.accept
+        )
+        const session = browser.session()
+        for (const value of Object.values(rejectedInput))
+          assert.isFalse(JSON.stringify(session).includes(value), 'No submitted input in session')
+        assert.isTrue(session.betaInvitationHash === BetaInvitationService.hashToken(issued.token))
+        const refusalBody = await refused.text()
+        for (const value of Object.values(rejectedInput))
+          assert.isFalse(refusalBody.includes(value), 'No submitted input in response')
+        if (representation.name === 'JSON') {
+          assert.equal(refused.status, 422)
+          const fields = JSON.parse(refusalBody).errors.map(
+            (error: { field: string }) => error.field
+          )
+          assert.sameMembers(fields, ['password', 'passwordConfirmation'])
+        } else {
+          assert.equal(refused.status, 302)
+          assert.equal(refused.headers.get('location'), '/register')
+          const pageResponse = await browser.request('/register')
+          const page = (await pageResponse.json()) as any
+          assert.sameMembers(Object.keys(page.props.errors), ['password', 'passwordConfirmation'])
+          for (const value of [
+            rejectedInput.password,
+            rejectedInput.passwordConfirmation,
+            issued.token,
+            rejectedInput.unexpectedSecret,
+          ])
+            assert.isFalse(JSON.stringify(page).includes(value), 'No sensitive input in page props')
+        }
+        assert.deepEqual(await counts(), before)
+        assert.isNull(await User.findBy('email', email))
+        const invitationAfterRefusal = await BetaInvitation.findOrFail(issued.id)
+        assert.isNull(invitationAfterRefusal.redeemedAt)
+        await noAuthenticatedSession(browser, assert)
+        const retry = await browser.request(
+          `/register${suffix}`,
+          { ...registration(email), passwordConfirmation: password },
+          true,
+          representation.inertia,
+          representation.accept
+        )
+        assert.equal(retry.status, 302)
+        assert.equal(retry.headers.get('location'), '/dashboard')
+        assert.isNotNull(await User.findBy('email', email))
+        const invitationAfterRetry = await BetaInvitation.findOrFail(issued.id)
+        assert.isNotNull(invitationAfterRetry.redeemedAt)
+      })
+    }
+  }
+
   test('HTTP rejects bad, expired, revoked and replayed tokens without a session', async ({
     assert,
   }) => {
@@ -457,8 +615,8 @@ test.group('Beta invitations — isolated PostgreSQL and real HTTP', (group) => 
       const browser = new Browser()
       const response = await browser.invitation(token)
       assert.equal(response.status, 403)
-      const rows17 = await response.text()
-      assert.isFalse(rows17.includes(token || 'not-a-token'))
+      const refusalBody = await response.text()
+      assert.isFalse(refusalBody.includes(token || 'not-a-token'))
       await noAuthenticatedSession(browser, assert)
     }
   })

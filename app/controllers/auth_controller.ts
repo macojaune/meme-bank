@@ -95,10 +95,12 @@ export default class AuthController {
     } catch (error) {
       // Handle validation errors
       if (error.code === 'E_VALIDATION_ERROR') {
-        if (request.header('x-inertia')) {
+        // Match Adonis' negotiation, including its default HTML response.
+        const responseType = request.accepts(['html', 'application/vnd.api+json', 'json'])
+        if (request.header('x-inertia') || !responseType || responseType === 'html') {
           // The invitation page hides its referrer. Do not rely on redirect().back(),
           // which would send an invalid form to the landing and discard its input.
-          // Flash only validator messages. flashValidationErrors also copies input,
+          // HTML and Inertia flash only messages. flashValidationErrors also copies input,
           // including camelCase passwordConfirmation and any extra token field.
           session.flashErrors(
             Object.fromEntries(
