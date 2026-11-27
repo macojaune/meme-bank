@@ -23,7 +23,7 @@ export default class AgentVideoImportsController {
       }
 
       const publish = request.input('publish')
-      if (publish != null && publish !== 'true' && publish !== 'false') {
+      if (publish !== undefined && publish !== null && publish !== 'true' && publish !== 'false') {
         return response.badRequest({ error: 'invalid_publish_value' })
       }
       if (publish === 'true' && !credentials.abilities.includes(PUBLISH_ABILITY)) {
@@ -38,13 +38,15 @@ export default class AgentVideoImportsController {
       const title = request.input('title')
       const transcript = request.input('transcript')
       if (
-        title != null &&
+        title !== undefined &&
+        title !== null &&
         (typeof title !== 'string' || [...title.trim()].length > 255 || title.includes('\0'))
       ) {
         return response.badRequest({ error: 'invalid_title' })
       }
       if (
-        transcript != null &&
+        transcript !== undefined &&
+        transcript !== null &&
         (typeof transcript !== 'string' ||
           Buffer.byteLength(transcript) > 65536 ||
           transcript.includes('\0'))
