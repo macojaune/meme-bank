@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
 import { BaseModel, column, hasMany, hasOne, manyToMany, beforeCreate } from '@adonisjs/lucid/orm'
+import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -24,6 +25,13 @@ const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
 })
 
 export default class User extends compose(BaseModel, AuthFinder) {
+  static uploadTokens = DbAccessTokensProvider.forModel(User, {
+    table: 'video_upload_tokens',
+    type: 'video_upload_token',
+    prefix: 'mbu_',
+    expiresIn: '30 days',
+  })
+
   @column({ isPrimary: true })
   declare id: string
 

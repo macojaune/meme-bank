@@ -102,22 +102,24 @@ export default function TranscriptionViewer({ videoId, isOwner }: TranscriptionV
   }
 
   return (
-    <div className='my-2'>
+    <div className="my-2">
       <div className="p-3 bg-gray-100 border-b-2 border-black flex justify-between items-center">
         <h3 className="font-bold text-sm uppercase">Transcription</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs px-2 py-1 bg-blue-100 rounded">{transcription.language}</span>
           <span
-            className={`text-xs px-2 py-1 rounded ${transcription.status === 'auto_generated'
+            className={`text-xs px-2 py-1 rounded ${
+              transcription.status === 'auto_generated'
                 ? 'bg-yellow-100'
                 : transcription.status === 'community_corrected'
                   ? 'bg-green-100'
                   : 'bg-purple-100'
-              }`}
+            }`}
           >
             {transcription.status === 'auto_generated' && '🤖 Auto'}
             {transcription.status === 'community_corrected' && '👥 Communauté'}
             {transcription.status === 'admin_validated' && '✅ Validé'}
+            {transcription.status === 'imported' && 'Importée'}
           </span>
           {transcription.pointsAwarded > 0 && (
             <span className="text-xs px-2 py-1 bg-green-200 rounded font-bold">
@@ -147,8 +149,9 @@ export default function TranscriptionViewer({ videoId, isOwner }: TranscriptionV
               <button
                 type="button"
                 onClick={submitCorrection}
-                className={`btn-neo text-sm px-4 py-2 font-bold ${!hasChanges() ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                className={`btn-neo text-sm px-4 py-2 font-bold ${
+                  !hasChanges() ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
                 disabled={!editedText.trim() || !hasChanges()}
                 title={!hasChanges() ? 'Modifiez le texte pour soumettre une correction' : ''}
               >

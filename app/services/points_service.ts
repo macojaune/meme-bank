@@ -2,6 +2,8 @@ import emitter from '@adonisjs/core/services/emitter'
 import User from '#models/user'
 import Video from '#models/video'
 import VideoTranscription from '#models/video_transcription'
+import db from '@adonisjs/lucid/services/db'
+import PointsHistory from '#models/points_history'
 import PointsEarned from '#events/points_earned'
 
 export interface GrantPointsOptions {
@@ -30,7 +32,6 @@ export default class PointsService {
     const { user, points, reason, reference } = options
 
     // Create history entry
-    const { default: PointsHistory } = await import('#models/points_history')
     await PointsHistory.create({
       userId: user.id,
       points,
@@ -53,25 +54,30 @@ export default class PointsService {
    * Handle video upload points
    */
   static async onVideoUpload(video: Video, user: User): Promise<void> {
-    // Grant upload points
-    await this.grant({
-      user,
-      points: 20,
-      reason: 'upload',
-      reference: { id: video.id, type: 'video' },
+    const awards = await db.transaction(async (client) => {
+      const owner = await User.query({ client }).where('id', user.id).forUpdate().firstOrFail()
+      const existing = await PointsHistory.query({ client })
+        .where({ userId: owner.id, reason: 'upload', referenceId: video.id })
+        .first()
+      if (existing) return null
+
+      const reference = { userId: owner.id, referenceId: video.id, referenceType: 'video' as const }
+      const count = await Video.query({ client }).where('user_id', owner.id).count('* as count')
+      const firstUpload = Number(count[0].$extras.count) === 1
+      await PointsHistory.create({ ...reference, reason: 'upload', points: 20 }, { client })
+      if (firstUpload) {
+        await PointsHistory.create({ ...reference, reason: 'first_upload', points: 10 }, { client })
+      }
+      owner.totalPoints += firstUpload ? 30 : 20
+      await owner.save()
+      return { owner, firstUpload }
     })
 
-    // Check if it's the user's first video
-    const videoCount = await Video.query().where('user_id', user.id).count('* as count')
-
-    if (videoCount[0].$extras.count === 1) {
-      // Bonus for first upload
-      await this.grant({
-        user,
-        points: 10,
-        reason: 'first_upload',
-        reference: { id: video.id, type: 'video' },
-      })
+    if (awards) {
+      await emitter.emit(PointsEarned, new PointsEarned(awards.owner, 20, 'upload'))
+      if (awards.firstUpload) {
+        await emitter.emit(PointsEarned, new PointsEarned(awards.owner, 10, 'first_upload'))
+      }
     }
   }
 

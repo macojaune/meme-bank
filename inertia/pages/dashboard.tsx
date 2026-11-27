@@ -208,7 +208,7 @@ function VideoCard({
         {!imageError && thumbnailUrl ? (
           <img
             src={thumbnailUrl}
-            alt={video.title}
+            alt={video.title || 'Sans titre'}
             className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             loading="lazy"
             onLoad={() => setImageLoaded(true)}
@@ -245,7 +245,9 @@ function VideoCard({
 
       {/* Info */}
       <div className="p-4">
-        <h3 className="font-black uppercase truncate mb-2 text-sm leading-tight">{video.title}</h3>
+        <h3 className="font-black uppercase truncate mb-2 text-sm leading-tight">
+          {video.title || 'Sans titre'}
+        </h3>
 
         {/* Tags */}
         {video.persons.length > 0 && (

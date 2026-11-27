@@ -2,6 +2,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import emitter from '@adonisjs/core/services/emitter'
+import { canViewVideo } from '#services/video_access'
 import Video from '#models/video'
 import VideoTranscription, { TranscriptionStatus } from '#models/video_transcription'
 import TranscriptionCorrected from '#events/transcription_corrected'
@@ -10,9 +11,10 @@ export default class TranscriptionsController {
   /**
    * Get current transcription for a video
    */
-  async show({ params, response }: HttpContext) {
+  async show({ params, response, auth }: HttpContext) {
     try {
-      const video = await Video.findOrFail(params.videoId)
+      const video = await Video.find(params.videoId)
+      if (!video || !canViewVideo(video, auth.user?.id)) return response.notFound()
 
       const transcription = await VideoTranscription.query()
         .where('videoId', video.id)
@@ -56,7 +58,8 @@ export default class TranscriptionsController {
         return response.unauthorized({ error: 'Authentication required' })
       }
 
-      const video = await Video.findOrFail(params.videoId)
+      const video = await Video.find(params.videoId)
+      if (!video || !canViewVideo(video, auth.user?.id)) return response.notFound()
 
       // Get current transcription
       const currentTranscription = await VideoTranscription.query()
@@ -122,9 +125,10 @@ export default class TranscriptionsController {
   /**
    * Get all revisions for a video
    */
-  async history({ params, response }: HttpContext) {
+  async history({ params, response, auth }: HttpContext) {
     try {
-      const video = await Video.findOrFail(params.videoId)
+      const video = await Video.find(params.videoId)
+      if (!video || !canViewVideo(video, auth.user?.id)) return response.notFound()
 
       const transcriptions = await VideoTranscription.query()
         .where('videoId', video.id)

@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from 'bullmq'
+import type { RedisOptions } from 'ioredis'
 import queueConfig from '#config/queue'
 import type { JobData, JobResult } from '../jobs/types.js'
 
@@ -6,19 +7,20 @@ export default class QueueService {
   private queues: Map<string, Queue> = new Map()
   private workers: Map<string, Worker> = new Map()
 
-  constructor() {
-    this.initializeQueues()
+  constructor(connectionOptions?: RedisOptions) {
+    this.initializeQueues(connectionOptions)
   }
 
-  private initializeQueues() {
+  private initializeQueues(connectionOptions?: RedisOptions) {
     // Initialiser chaque queue définie dans la config
     for (const [key, config] of Object.entries(queueConfig.queues)) {
       const { connection: ignoredConnection, ...optsWithoutConnection } = config.opts || {}
       void ignoredConnection
       const queue = new Queue(config.name, {
-        connection: queueConfig.connection,
+        connection: { ...queueConfig.connection, ...connectionOptions },
         ...optsWithoutConnection,
       })
+      if (connectionOptions) queue.on('error', () => {})
       this.queues.set(key, queue)
     }
   }

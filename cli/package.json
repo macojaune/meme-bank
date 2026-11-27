@@ -1,0 +1,20 @@
+{
+  "name": "memebank-upload",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Import a video into MemeBank from a file or direct URL",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "memebank-upload": "./upload.mjs"
+  },
+  "files": [
+    "upload.mjs",
+    "source.mjs"
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
+}

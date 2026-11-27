@@ -66,7 +66,7 @@ EXPOSE 63240
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:63240/health || exit 1
+    CMD if [ "$MEMEBANK_PROCESS" = "worker" ]; then grep -aq "queue:work" /proc/1/cmdline; else curl -f http://localhost:63240/health; fi
 
 # Run migrations and the curated demo seed only when the environment opts in.
-CMD ["sh", "-c", "if [ \"$RUN_MIGRATIONS\" = \"true\" ]; then node ace migration:run --force; fi; if [ \"$RUN_SEEDS\" = \"true\" ]; then node ace db:seed; fi; exec node bin/server.js"]
+CMD ["sh", "-c", "if [ \"$MEMEBANK_PROCESS\" = \"worker\" ]; then exec node ace queue:work all; fi; if [ \"$RUN_MIGRATIONS\" = \"true\" ]; then node ace migration:run --force || exit $?; fi; if [ \"$RUN_SEEDS\" = \"true\" ]; then node ace db:seed; fi; exec node bin/server.js"]

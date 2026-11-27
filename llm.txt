@@ -1,0 +1,92 @@
+# Importer une vidéo dans MemeBank
+
+Installe le CLI depuis le dépôt MemeBank avec Node.js 22 ou plus récent.
+Depuis la racine du dépôt, exécute `npm install -g ./cli`, puis
+`memebank-upload --help`.
+
+## Connexion à DEV
+
+Définis `MEMEBANK_URL=https://memebank-dev.marvinl.com`.
+Injecte le jeton d’import depuis ton gestionnaire de secrets dans
+`MEMEBANK_UPLOAD_TOKEN`. Pour le domaine DEV, injecte aussi les identifiants
+d’accès dans `MEMEBANK_DEV_BASIC_AUTH`, au format `utilisateur:motdepasse`.
+Garde ces valeurs hors des commandes, fichiers de projet et journaux.
+
+L’opérateur MemeBank crée le jeton pour le compte autorisé avec
+`node ace video:upload-token issue <user-id> --output /chemin/prive/token`.
+Le jeton expire au bout de 30 jours. L’opérateur peut le révoquer avec
+`node ace video:upload-token revoke <user-id> --id <id>`.
+
+## Exemples
+
+Import minimal depuis un fichier local ou une URL directe.
+
+```sh
+memebank-upload ./video.mp4
+memebank-upload 'https://example.com/video.mp4'
+```
+
+Ajoute le titre et la transcription quand ils sont fournis.
+
+```sh
+memebank-upload ./video.mp4 --title "Titre donné par l’utilisateur" --transcript-file ./transcription.txt
+```
+
+`--name` est un alias de `--title`. Le fichier de transcription doit contenir
+du texte brut UTF-8. Utilise `--transcript 'texte'` pour un court extrait
+ou `--transcript-file` pour un texte multiligne.
+
+L’import est privé par défaut, y compris lorsqu’une transcription est fournie.
+Le compte propriétaire retrouve la vidéo dans sa galerie et son tableau de bord.
+Il peut ensuite sélectionner « Publier » dans son tableau de bord pour rendre
+la vidéo visible aux autres membres et dans la banque de mèmes publique.
+Un titre omis reste vide. L’interface affiche « Sans titre ».
+Une transcription fournie devient la première révision, marquée « Importée ».
+Sans transcription fournie, MemeBank crée la vignette sans lancer de transcription.
+Ajoute `--publish` seulement sur demande. La publication, possible sans
+transcription, exige un jeton émis avec `--publish` et un compte habilité.
+
+## Sources prises en charge
+
+Fichiers MP4, WebM, Ogg ou AVI jusqu’à 10 Mio. Le titre est limité à
+255 caractères et la transcription à 64 Kio. Un lien HTTP(S) doit servir le
+fichier vidéo directement depuis une adresse IP publique. Le CLI accepte au
+plus cinq redirections et arrête le téléchargement après 60 secondes.
+L’envoi à MemeBank est limité à 120 secondes.
+
+Les liens vers une page YouTube, Instagram ou TikTok, les flux HLS/DASH et les
+sources nécessitant une session doivent d’abord être exportés en fichier
+vidéo. Importe ensuite ce fichier localement. Les identifiants MemeBank
+sont réservés à la requête d’import.
+
+## Résultat et relance
+
+Le CLI écrit un objet JSON sur stdout en cas de succès.
+
+```json
+{"videoId":"93c4bd71-0fc7-45b9-8bff-05d2862c381d","replayed":false,"isPublished":false,"processingQueued":true}
+```
+
+`replayed: true` indique que MemeBank a reconnu l’import. Par défaut,
+le CLI calcule une clé SHA-256 à partir du contenu de la vidéo, du titre,
+de la transcription et de la demande de publication. Pour relancer un envoi
+interrompu, reprends les mêmes octets et options. Si tu avais fourni
+`--idempotency-key`, réutilise la même valeur avec les mêmes données.
+Si `processingQueued` vaut `false`, la vidéo a été enregistrée.
+Relance avec les mêmes données et la même clé pour retenter la mise en file.
+
+En cas d’erreur, le CLI quitte avec le code 1 et écrit un objet JSON
+`{"error":{"code":"…","message":"…","status":401}}` sur stderr.
+Le statut HTTP est présent quand le serveur a répondu.
+
+- `401` ou `403` : vérifie le jeton, l’accès DEV et le droit de publication.
+- `409` : vérifie la clé d’idempotence et les données de l’import.
+- `400`, `413` ou `422` : vérifie la taille, le format vidéo et les métadonnées.
+- `503 private_storage_unavailable` : le stockage privé reste à configurer côté MemeBank.
+- Source non prise en charge : récupère un fichier exporté ou un lien direct.
+
+Pour un autre client HTTP, utilise `POST /api/agent/video-import`,
+`Authorization: Bearer <jeton>` et `Idempotency-Key`. Le corps multipart contient
+`video`, ainsi que `title`, `transcript` et `publish=true` si demandés.
+Sur le domaine DEV ci-dessus, réserve `Authorization: Basic …` à l’accès DEV
+et transmets le jeton brut dans `X-MemeBank-Upload-Token`.
