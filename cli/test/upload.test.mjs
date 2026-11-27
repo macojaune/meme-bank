@@ -20,7 +20,6 @@ const testToken = randomUUID()
 const uploads = []
 const sources = []
 const commonsRequests = []
-const pageRequests = []
 const commonsPage = 'https://commons.wikimedia.org/wiki/File:'
 const results = new Set()
 let folder
@@ -66,62 +65,6 @@ before(async () => {
         response.writeHead(200, { 'Content-Type': 'video/webm' }).end(bytes)
       }
       return
-    }
-    if (url.pathname.startsWith('/page/')) {
-      pageRequests.push({ url, headers: request.headers })
-      const html = (body) => response.writeHead(200, { 'Content-Type': 'text/html' }).end(body)
-      const redirect = (location) => response.writeHead(302, { Location: location }).end()
-      const media = () => response.writeHead(200, { 'Content-Type': 'video/mp4' }).end(bytes)
-      const paths = url.pathname.split('/')
-      switch (url.pathname) {
-        case '/page/moved':
-          return redirect('/page/sub/watch')
-        case '/page/sub/watch':
-          return html(
-            '<base href="http://127.0.0.1/"><video><source src="live.m3u8" type="application/vnd.apple.mpegurl">' +
-              '<source src="clip?one=1&amp;two=2" type="Video/MP4; codecs=avc1"></video>'
-          )
-        case '/page/sub/clip':
-          return media()
-        case '/page/embed-only':
-          return html(
-            '<iframe src="/page/inner"></iframe><script>const fake = "<video src=/page/inner>"</script>' +
-              '<!-- <video src="/page/inner"> --><template><video src="/page/inner"></video></template>' +
-              '<noscript><video src="/page/inner"></video></noscript>'
-          )
-        case '/page/inner':
-          return media()
-        case '/page/big':
-          return html(' '.repeat(512 * 1024 + 1))
-        case '/page/private':
-          return html('<video src="http://127.0.0.1/secret"></video>')
-        case '/page/downgrade':
-          return html('<video src="http://93.184.215.14/page/inner"></video>')
-        case '/page/media-redirect':
-          return html('<video src="/page/outside"></video>')
-        case '/page/outside':
-          return redirect('http://127.0.0.1/secret')
-        case '/page/not-video':
-          return html('<video src="/page/embed-only"></video>')
-        case '/page/octet-stream':
-          return html('<video src="/page/media.mp4"></video>')
-        case '/page/media.mp4':
-          return response.writeHead(200, { 'Content-Type': 'application/octet-stream' }).end(bytes)
-        case '/page/large-media':
-          return html('<video src="/page/oversize"></video>')
-        case '/page/oversize':
-          response.writeHead(200, { 'Content-Type': 'video/mp4' })
-          response.write(Buffer.alloc(10 * 1024 * 1024))
-          return response.end('x')
-      }
-      if (paths[2] === 'budget') {
-        return paths[3] === '4'
-          ? html('<video src="/page/chain/0"></video>')
-          : redirect('/page/budget/' + (Number(paths[3]) + 1))
-      }
-      if (paths[2] === 'chain') {
-        return paths[3] === '2' ? media() : redirect('/page/chain/' + (Number(paths[3]) + 1))
-      }
     }
     if (request.url.startsWith('/source/')) {
       sources.push(request.headers)
@@ -185,7 +128,6 @@ beforeEach(() => {
   uploads.length = 0
   sources.length = 0
   commonsRequests.length = 0
-  pageRequests.length = 0
   results.clear()
 })
 
@@ -310,7 +252,7 @@ test('une adresse privée, une redirection privée, une page HTML ou un flux tro
   await expectError(['http://localhost/secret'], 'SOURCE_ADDRESS_BLOCKED')
   await expectError(['http://[::ffff:127.0.0.1]/secret'], 'SOURCE_ADDRESS_BLOCKED')
   await expectError(['http://93.184.215.14/source/private'], 'SOURCE_ADDRESS_BLOCKED', {}, true)
-  await expectError(['http://93.184.215.14/source/html'], 'PAGE_VIDEO_UNAVAILABLE', {}, true)
+  await expectError(['http://93.184.215.14/source/html'], 'UNSUPPORTED_SOURCE', {}, true)
   await expectError(['http://93.184.215.14/source/large'], 'SOURCE_TOO_LARGE', {}, true)
   assert.equal(uploads.length, count)
 })
@@ -384,54 +326,5 @@ test('la taille annoncée et les destinations Wikimedia hors périmètre bloquen
   assert.equal(commonsRequests.length, 2)
   await expectError([commonsPage + 'Redirected.webm'], 'COMMONS_UNEXPECTED_ORIGIN', {}, true)
   assert.equal(commonsRequests.length, 4)
-  assert.equal(uploads.length, 0)
-})
-
-const publicPage = 'http://93.184.215.14/page/'
-
-test('une page HTML redirigée fournit un média relatif et décode la requête HTML', async () => {
-  const result = await run([publicPage + 'moved'], {}, true)
-  assert.equal(JSON.parse(result.stdout).isPublished, false)
-  assert.equal(uploads[0].form.get('video').type, 'video/mp4')
-  assert.deepEqual(uploads[0].bytes, bytes)
-  assert.deepEqual(
-    pageRequests.map(({ url }) => url.pathname),
-    ['/page/moved', '/page/sub/watch', '/page/sub/clip']
-  )
-  assert.equal(pageRequests[2].url.search, '?one=1&two=2')
-  for (const { headers } of pageRequests) {
-    for (const name of ['cookie', 'authorization', 'referer', 'x-memebank-upload-token']) {
-      assert.equal(headers[name], undefined)
-    }
-  }
-  const replay = await run([publicPage + 'moved'], {}, true)
-  assert.equal(JSON.parse(replay.stdout).replayed, true)
-  assert.equal(uploads[0].key, uploads[1].key)
-})
-
-test('un lecteur intégré et du HTML inactif ne déclenchent aucun téléchargement', async () => {
-  await expectError([publicPage + 'embed-only'], 'PAGE_VIDEO_UNAVAILABLE', {}, true)
-  assert.deepEqual(
-    pageRequests.map(({ url }) => url.pathname),
-    ['/page/embed-only']
-  )
-  assert.equal(uploads.length, 0)
-})
-
-test('les limites HTML et les contrôles média s’appliquent à la seconde requête', async () => {
-  await expectError([publicPage + 'big'], 'PAGE_TOO_LARGE', {}, true)
-  await expectError([publicPage + 'private'], 'SOURCE_ADDRESS_BLOCKED', {}, true)
-  await expectError(['https://93.184.215.14/page/downgrade'], 'SOURCE_REDIRECT', {}, true)
-  await expectError([publicPage + 'media-redirect'], 'SOURCE_ADDRESS_BLOCKED', {}, true)
-  await expectError([publicPage + 'not-video'], 'PAGE_MEDIA_NOT_FILE', {}, true)
-  await expectError([publicPage + 'octet-stream'], 'PAGE_MEDIA_NOT_FILE', {}, true)
-  await expectError([publicPage + 'large-media'], 'SOURCE_TOO_LARGE', {}, true)
-  assert.equal(uploads.length, 0)
-})
-
-test('la page et le média partagent cinq redirections au total', async () => {
-  await expectError([publicPage + 'budget/0'], 'SOURCE_REDIRECT', {}, true)
-  assert.equal(pageRequests.length, 7)
-  assert.equal(pageRequests.at(-1).url.pathname, '/page/chain/1')
   assert.equal(uploads.length, 0)
 })

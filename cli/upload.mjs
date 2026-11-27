@@ -5,12 +5,7 @@ import { CliError, MAX_TRANSCRIPT_BYTES, readBounded, readLocalFile, readVideo }
 
 const usage = {
   usage: 'memebank-upload <fichier-ou-url> [options]',
-  sources: [
-    'Fichier local',
-    'URL directe HTTP(S)',
-    'Fiche vidéo Wikimedia Commons (File:)',
-    'Page publique exposant un fichier dans video/source',
-  ],
+  sources: ['Fichier local', 'URL directe HTTP(S)', 'Fiche vidéo Wikimedia Commons (File:)'],
   options: {
     '--title, --name': 'Titre facultatif.',
     '--transcript-file': 'Chemin du fichier de transcription en texte UTF-8.',
