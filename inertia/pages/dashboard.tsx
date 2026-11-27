@@ -46,20 +46,6 @@ interface DashboardProps {
   likedVideos?: Video[]
 }
 
-function getThumbnailUrl(thumbnailPath: string | null): string | null {
-  if (!thumbnailPath) return null
-  if (thumbnailPath.startsWith('http')) return thumbnailPath
-
-  const minioUrl =
-    typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-      ? `http://${window.location.hostname}:9000`
-      : 'http://localhost:9000'
-
-  const bucket = 'memes'
-  const cleanPath = thumbnailPath.startsWith('/') ? thumbnailPath.slice(1) : thumbnailPath
-  return `${minioUrl}/${bucket}/${cleanPath}`
-}
-
 const VideoIcon = () => (
   <svg
     width="48"
@@ -194,7 +180,7 @@ function VideoCard({
   const [imageError, setImageError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
 
-  const thumbnailUrl = getThumbnailUrl(video.thumbnailPath)
+  const thumbnailUrl = video.thumbnailPath
 
   return (
     <div
