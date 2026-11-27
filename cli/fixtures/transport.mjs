@@ -15,7 +15,7 @@ const httpsGet = https.get
 https.get = function (url, options, callback) {
   if (
     url instanceof URL &&
-    ['commons.wikimedia.org', 'upload.wikimedia.org'].includes(url.hostname)
+    ['commons.wikimedia.org', 'upload.wikimedia.org', '93.184.215.14'].includes(url.hostname)
   ) {
     return http.get(new URL(url.pathname + url.search, origin), options, callback)
   }
