@@ -19,6 +19,8 @@ const htmlSecret = randomUUID()
 const testToken = randomUUID()
 const uploads = []
 const sources = []
+const commonsRequests = []
+const commonsPage = 'https://commons.wikimedia.org/wiki/File:'
 const results = new Set()
 let folder
 let video
@@ -30,6 +32,40 @@ before(async () => {
   video = join(folder, 'recette.mp4')
   await writeFile(video, bytes)
   server = createServer(async (request, response) => {
+    const url = new URL(request.url, 'http://fixture.test')
+    if (url.pathname === '/w/api.php') {
+      commonsRequests.push({ url, headers: request.headers })
+      const title = url.searchParams.get('titles')
+      if (title === 'File:OversizedMetadata.webm') {
+        response.writeHead(200, { 'Content-Type': 'application/json' }).end(' '.repeat(65537))
+        return
+      }
+      const file = {
+        mediatype: 'VIDEO',
+        mime: 'video/webm',
+        url: 'https://upload.wikimedia.org/wikipedia/commons/fixture.webm',
+        size: bytes.length,
+      }
+      if (title === 'File:Missing.webm') file.mediatype = 'UNKNOWN'
+      if (title === 'File:Large.webm') file.size = 11 * 1024 * 1024
+      if (title === 'File:Truncated.webm') file.size++
+      if (title === 'File:Unexpected.webm') file.url = 'https://fixtures.invalid/other.webm'
+      if (title === 'File:Redirected.webm')
+        file.url = 'https://upload.wikimedia.org/wikipedia/commons/redirect.webm'
+      response
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ query: { pages: [{ ns: 6, imageinfo: [file] }] } }))
+      return
+    }
+    if (url.pathname.startsWith('/wikipedia/commons/')) {
+      commonsRequests.push({ url, headers: request.headers })
+      if (url.pathname.endsWith('redirect.webm')) {
+        response.writeHead(302, { Location: 'https://commons.wikimedia.org/moved.webm' }).end()
+      } else {
+        response.writeHead(200, { 'Content-Type': 'video/webm' }).end(bytes)
+      }
+      return
+    }
     if (request.url.startsWith('/source/')) {
       sources.push(request.headers)
       if (request.url === '/source/redirect') {
@@ -91,6 +127,7 @@ before(async () => {
 beforeEach(() => {
   uploads.length = 0
   sources.length = 0
+  commonsRequests.length = 0
   results.clear()
 })
 
@@ -251,4 +288,43 @@ test('les limites locales et un fichier de transcription non UTF-8 bloquent l’
   await writeFile(transcript, 'x\n'.repeat(25_000))
   await expectError([video, '--transcript-file', transcript], 'INVALID_TRANSCRIPT')
   assert.equal(uploads.length, count)
+})
+
+test('une fiche Wikimedia Commons résout le WebM original et le rejeu garde le même identifiant', async () => {
+  const link = commonsPage + 'Vid%C3%A9o_d%27essai.webm'
+  const initial = await run([link], {}, true)
+  assert.deepEqual(JSON.parse(initial.stdout), { videoId, replayed: false, isPublished: false })
+  assert.deepEqual(uploads[0].bytes, bytes)
+  assert.equal(uploads[0].form.get('video').type, 'video/webm')
+  assert.deepEqual([...uploads[0].form.keys()], ['video'])
+  assert.equal(commonsRequests[0].url.searchParams.get('titles'), "File:Vidéo_d'essai.webm")
+  assert.equal(commonsRequests[1].url.pathname, '/wikipedia/commons/fixture.webm')
+  for (const { headers } of commonsRequests) {
+    assert.match(headers['user-agent'], /^memebank-upload\//)
+    assert.equal(headers.authorization, undefined)
+    assert.equal(headers.cookie, undefined)
+    assert.equal(headers['x-memebank-upload-token'], undefined)
+  }
+
+  const replay = await run([link], {}, true)
+  assert.deepEqual(JSON.parse(replay.stdout), { videoId, replayed: true, isPublished: false })
+  assert.equal(uploads[0].key, uploads[1].key)
+})
+
+test('une fiche Wikimedia sans vidéo ou avec une réponse incohérente est refusée', async () => {
+  await expectError([commonsPage + 'Missing.webm'], 'COMMONS_VIDEO_UNAVAILABLE', {}, true)
+  await expectError([commonsPage + 'OversizedMetadata.webm'], 'COMMONS_INVALID_RESPONSE', {}, true)
+  await expectError([commonsPage + 'Truncated.webm'], 'COMMONS_INVALID_RESPONSE', {}, true)
+  await expectError([commonsPage + 'Sample.webm?oldid=12'], 'COMMONS_VIDEO_UNAVAILABLE', {}, true)
+  await expectError([commonsPage + 'Sample%7CInjected.webm'], 'COMMONS_VIDEO_UNAVAILABLE', {}, true)
+  assert.equal(uploads.length, 0)
+})
+
+test('la taille annoncée et les destinations Wikimedia hors périmètre bloquent avant envoi', async () => {
+  await expectError([commonsPage + 'Large.webm'], 'SOURCE_TOO_LARGE', {}, true)
+  await expectError([commonsPage + 'Unexpected.webm'], 'COMMONS_UNEXPECTED_ORIGIN', {}, true)
+  assert.equal(commonsRequests.length, 2)
+  await expectError([commonsPage + 'Redirected.webm'], 'COMMONS_UNEXPECTED_ORIGIN', {}, true)
+  assert.equal(commonsRequests.length, 4)
+  assert.equal(uploads.length, 0)
 })

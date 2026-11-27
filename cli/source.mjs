@@ -155,71 +155,171 @@ function sourceUrl(value, base) {
   return url
 }
 
-function getSource(url, signal) {
+const commons = 'https://commons.wikimedia.org'
+const commonsApi = commons + '/w/api.php'
+const commonsMedia = 'https://upload.wikimedia.org'
+const commonsHeaders = {
+  'User-Agent': 'memebank-upload/0.2 (https://github.com/macojaune/meme-bank)',
+}
+
+function getSource(url, signal, headers) {
   const client = url.protocol === 'https:' ? https : http
   return new Promise((resolve, reject) => {
-    const request = client.get(url, { agent: false, lookup: lookupPublic, signal }, resolve)
+    const request = client.get(
+      url,
+      { agent: false, lookup: lookupPublic, signal, headers },
+      resolve
+    )
     request.on('error', reject)
   })
 }
 
+async function readSource(url, signal, read, { checkUrl, headers } = {}) {
+  for (let redirects = 0; ; redirects++) {
+    checkUrl?.(url)
+    const response = await getSource(url, signal, headers)
+    try {
+      if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+        if (!response.headers.location || redirects === 5) {
+          throw new CliError(
+            'SOURCE_REDIRECT',
+            'Redirection absente ou trop nombreuses redirections.'
+          )
+        }
+        url = sourceUrl(response.headers.location, url)
+        continue
+      }
+      if (response.statusCode !== 200) {
+        throw new CliError(
+          'SOURCE_HTTP_ERROR',
+          'La source refuse la récupération. Vérifie que la page ou le fichier est public et réessaie plus tard en cas de panne.',
+          response.statusCode
+        )
+      }
+      const encoding = response.headers['content-encoding']?.toLowerCase()
+      if (encoding && encoding !== 'identity') {
+        throw new CliError('UNSUPPORTED_SOURCE', 'La source doit répondre sans encodage HTTP.')
+      }
+      const type = response.headers['content-type']?.split(';', 1)[0].trim().toLowerCase()
+      return await read(response, url, type)
+    } finally {
+      response.destroy()
+    }
+  }
+}
+
+const tooLarge = () => new CliError('SOURCE_TOO_LARGE', 'La vidéo dépasse 10 Mio.')
+
+async function readVideoResponse(response, url, mediaType) {
+  if (Number(response.headers['content-length']) > MAX_VIDEO_BYTES) throw tooLarge()
+  const contentType = mediaType === 'application/octet-stream' ? undefined : mediaType
+  const filename = basename(decodeURIComponent(url.pathname))
+  const extension = extname(filename).toLowerCase()
+  if (contentType ? !mediaTypes.has(contentType) : !extensions.has(extension)) {
+    throw new CliError(
+      'UNSUPPORTED_SOURCE',
+      'Utilise un lien direct MP4, WebM, Ogg ou AVI, une page vidéo Wikimedia Commons prise en charge ou un fichier local.'
+    )
+  }
+  const bytes = await readBounded(response, MAX_VIDEO_BYTES, tooLarge())
+  return videoFile(bytes, filename, contentType)
+}
+
+function checkCommonsMedia(url) {
+  if (url.origin !== commonsMedia || !url.pathname.startsWith('/wikipedia/commons/')) {
+    throw new CliError(
+      'COMMONS_UNEXPECTED_ORIGIN',
+      'Wikimedia Commons renvoie vers un hôte ou un chemin média inattendu. Fournis un lien direct vérifié.'
+    )
+  }
+}
+
+async function downloadCommonsVideo(page, title, signal) {
+  const unavailable = new CliError(
+    'COMMONS_VIDEO_UNAVAILABLE',
+    'Ouvre la fiche File: d’une vidéo publique sur Wikimedia Commons ou fournis un fichier local.'
+  )
+  if (
+    !/^File:.+$/u.test(title) ||
+    /[|\x00-\x1f\x7f]/u.test(title) ||
+    page.searchParams.has('oldid')
+  ) {
+    throw unavailable
+  }
+  const api = new URL(commonsApi)
+  api.search = new URLSearchParams({
+    action: 'query',
+    prop: 'imageinfo',
+    iiprop: 'url|size|mime|mediatype',
+    iilimit: '1',
+    redirects: '1',
+    format: 'json',
+    formatversion: '2',
+    titles: title,
+  })
+  const invalid = new CliError(
+    'COMMONS_INVALID_RESPONSE',
+    'La réponse de Wikimedia Commons est invalide. Réessaie plus tard ou fournis le fichier original.'
+  )
+  const pages = await readSource(
+    api,
+    signal,
+    async (response, _url, type) => {
+      const limit = 64 * 1024
+      if (type !== 'application/json' || Number(response.headers['content-length']) > limit) {
+        throw invalid
+      }
+      const bytes = await readBounded(response, limit, invalid)
+      try {
+        return JSON.parse(bytes.toString('utf8'))?.query?.pages
+      } catch {
+        throw invalid
+      }
+    },
+    {
+      headers: commonsHeaders,
+      checkUrl(url) {
+        if (url.href !== api.href) throw invalid
+      },
+    }
+  )
+  const result = Array.isArray(pages) && pages.length === 1 ? pages[0] : null
+  const file = result?.imageinfo?.[0]
+  if (
+    result?.ns !== 6 ||
+    file?.mediatype !== 'VIDEO' ||
+    typeof file.url !== 'string' ||
+    !Number.isSafeInteger(file.size) ||
+    file.size <= 0 ||
+    file.mime !== 'video/webm'
+  ) {
+    throw unavailable
+  }
+  if (file.size > MAX_VIDEO_BYTES) throw tooLarge()
+  const video = await readSource(sourceUrl(file.url), signal, readVideoResponse, {
+    headers: commonsHeaders,
+    checkUrl: checkCommonsMedia,
+  })
+  if (video.type !== file.mime || video.bytes.length !== file.size) throw invalid
+  return video
+}
+
 async function downloadVideo(value) {
   const signal = AbortSignal.timeout(60_000)
-  let url = sourceUrl(value)
+  const url = sourceUrl(value)
   try {
-    for (let redirects = 0; ; redirects++) {
-      const response = await getSource(url, signal)
-      try {
-        if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
-          if (!response.headers.location || redirects === 5) {
-            throw new CliError(
-              'SOURCE_REDIRECT',
-              'Redirection vidéo absente ou trop nombreuses redirections.'
-            )
-          }
-          url = sourceUrl(response.headers.location, url)
-          continue
-        }
-        if (response.statusCode !== 200) {
-          throw new CliError(
-            'SOURCE_HTTP_ERROR',
-            'Le serveur source ne renvoie pas de fichier complet.',
-            response.statusCode
-          )
-        }
-        const tooLarge = new CliError('SOURCE_TOO_LARGE', 'La vidéo dépasse 10 Mio.')
-        if (Number(response.headers['content-length']) > MAX_VIDEO_BYTES) throw tooLarge
-        const encoding = response.headers['content-encoding']?.toLowerCase()
-        if (encoding && encoding !== 'identity') {
-          throw new CliError(
-            'UNSUPPORTED_SOURCE',
-            'La source doit envoyer le fichier vidéo sans encodage HTTP.'
-          )
-        }
-        const mediaType = response.headers['content-type']?.split(';', 1)[0].trim().toLowerCase()
-        const contentType = mediaType === 'application/octet-stream' ? undefined : mediaType
-        const pathname = decodeURIComponent(url.pathname)
-        const filename = basename(pathname)
-        const extension = extname(filename).toLowerCase()
-        if (contentType ? !mediaTypes.has(contentType) : !extensions.has(extension)) {
-          throw new CliError(
-            'UNSUPPORTED_SOURCE',
-            'Cette URL doit servir directement un fichier MP4, WebM, Ogg ou AVI.'
-          )
-        }
-        const bytes = await readBounded(response, MAX_VIDEO_BYTES, tooLarge)
-        return videoFile(bytes, filename, contentType)
-      } finally {
-        response.destroy()
-      }
+    if (url.origin === commons && url.pathname.startsWith('/wiki/')) {
+      const title = decodeURIComponent(url.pathname.slice(6))
+      if (title.startsWith('File:')) return await downloadCommonsVideo(url, title, signal)
     }
+    return await readSource(url, signal, readVideoResponse)
   } catch (error) {
     if (error instanceof CliError) throw error
     if (signal.aborted)
-      throw new CliError('SOURCE_TIMEOUT', 'Le téléchargement a dépassé 60 secondes.')
+      throw new CliError('SOURCE_TIMEOUT', 'La récupération a dépassé 60 secondes.')
     throw new CliError(
       'SOURCE_DOWNLOAD_FAILED',
-      'Impossible de télécharger la vidéo depuis la source.'
+      'Impossible de récupérer la vidéo depuis la source.'
     )
   }
 }
