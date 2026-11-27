@@ -19,7 +19,7 @@ type ImportResult = {
 
 const baseUrl = 'http://127.0.0.1:46388'
 const transcript = 'Une transcription de recette importée avec la vidéo synthétique.'
-const password = 'MemeBank-fixture-password!'
+const password = randomUUID()
 const redis = { host: '127.0.0.1', port: 46386 }
 const objectEndpoint = 'http://127.0.0.1:46387'
 const privateBucket = 'memebank-agent-fixture-private'
@@ -130,7 +130,7 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
   ) {
     const headers = new Headers({ 'accept': 'application/json', 'idempotency-key': key })
     if (token && transport === 'basic') {
-      headers.set('authorization', 'Basic Zml4dHVyZTpmaXh0dXJl')
+      headers.set('authorization', `Basic ${Buffer.from(`fixture:${randomUUID()}`).toString('base64')}`)
       headers.set('x-memebank-upload-token', token)
     } else if (token) {
       headers.set('authorization', `Bearer ${token}`)

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdtemp, rm, truncate, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -14,7 +15,8 @@ const videoId = '93c4bd71-0fc7-45b9-8bff-05d2862c381d'
 const bytes = Buffer.from('synthetic video upload fixture')
 const cli = fileURLToPath(new URL('../upload.mjs', import.meta.url))
 const transport = new URL('../fixtures/transport.mjs', import.meta.url)
-const htmlSecret = 'must-not-appear-in-errors'
+const htmlSecret = randomUUID()
+const testToken = randomUUID()
 const uploads = []
 const sources = []
 const results = new Set()
@@ -104,7 +106,7 @@ function run(args, env = {}, intercept = false) {
   const config = {
     ...process.env,
     MEMEBANK_URL: origin,
-    MEMEBANK_UPLOAD_TOKEN: 'fixture-upload-token',
+    MEMEBANK_UPLOAD_TOKEN: testToken,
     MEMEBANK_DEV_BASIC_AUTH: '',
     ...env,
   }
@@ -122,7 +124,8 @@ async function expectError(args, code, env, intercept) {
     assert.equal(failure.code, 1)
     assert.equal(failure.stdout, '')
     assert.equal(JSON.parse(failure.stderr).error.code, code)
-    assert.doesNotMatch(failure.stderr, /fixture-upload-token|must-not-appear-in-errors/)
+    assert.equal(failure.stderr.includes(testToken), false)
+    assert.equal(failure.stderr.includes(htmlSecret), false)
     return true
   })
 }
@@ -132,7 +135,7 @@ test('le fichier minimal arrive intact et la clé reste stable à la relance', a
   const first = uploads.at(-1)
   assert.equal(stderr, '')
   assert.deepEqual(JSON.parse(stdout), { videoId, replayed: false, isPublished: false })
-  assert.equal(first.headers.authorization, 'Bearer fixture-upload-token')
+  assert.equal(first.headers.authorization, `Bearer ${testToken}`)
   assert.match(first.key, /^[a-f0-9]{64}$/)
   assert.deepEqual(first.bytes, bytes)
   assert.deepEqual([...first.form.keys()], ['video'])
@@ -179,7 +182,7 @@ test('la publication sans transcription et la clé personnalisée sont explicite
 test('le mode DEV sépare les identifiants ingress et le jeton applicatif', async () => {
   const env = {
     MEMEBANK_URL: 'https://memebank-dev.marvinl.com',
-    MEMEBANK_DEV_BASIC_AUTH: 'fixture-user:fixture-password',
+    MEMEBANK_DEV_BASIC_AUTH: `fixture:${randomUUID()}`,
   }
   await run([video], env, true)
   const { headers } = uploads.at(-1)
@@ -187,7 +190,7 @@ test('le mode DEV sépare les identifiants ingress et le jeton applicatif', asyn
     headers.authorization,
     'Basic ' + Buffer.from(env.MEMEBANK_DEV_BASIC_AUTH).toString('base64')
   )
-  assert.equal(headers['x-memebank-upload-token'], 'fixture-upload-token')
+  assert.equal(headers['x-memebank-upload-token'], testToken)
   await expectError([video], 'INVALID_DEV_AUTH', { ...env, MEMEBANK_URL: origin })
 })
 
