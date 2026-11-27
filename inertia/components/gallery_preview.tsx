@@ -195,11 +195,11 @@ export default function GalleryPreview({ videos }: GalleryPreviewProps) {
                         void trackEvent('preview_video_play', { video_id: video.id })
                       }}
                       className="aspect-video w-full border-b-4 border-black bg-black object-contain"
-                      aria-label={`Lire ${video.title}`}
+                      aria-label={`Lire ${video.title || 'Sans titre'}`}
                     />
                     <div className="p-4">
                       <h3 className="min-h-[2.5rem] text-sm font-black uppercase leading-5 [overflow-wrap:anywhere] sm:text-base">
-                        {video.title}
+                        {video.title || 'Sans titre'}
                       </h3>
                       <div className="mt-4 flex items-center justify-between gap-3 border-t-2 border-black pt-3 text-xs font-black uppercase">
                         <span>{formatRegion(video.region)}</span>

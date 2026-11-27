@@ -410,7 +410,7 @@ export default function VideoModal({
             {/* Header: Title + Tags */}
             <div className="p-4 border-b-4 border-black bg-white">
               <h2 className="text-xl md:text-2xl font-black uppercase mb-3 leading-tight break-words">
-                {video.title}
+                {video.title || 'Sans titre'}
               </h2>
 
               <div className="flex flex-wrap gap-2">

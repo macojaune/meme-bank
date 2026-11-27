@@ -4,6 +4,7 @@ import { getAIServiceFactory } from '../services/ai/ai_factory.js'
 import VideoTranscription, { TranscriptionStatus } from '../models/video_transcription.js'
 import QueueService from '../services/queue_service.js'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import Video from '../models/video.js'
 
 const MAX_RETRIES = 3
@@ -29,6 +30,9 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
   )
 
   try {
+    const video = await Video.find(videoId)
+    if (!video || video.skipAutoTranscription) return { success: true, data: { skipped: true } }
+
     // Get the transcription service
     const aiFactory = getAIServiceFactory()
     const transcriptionService = aiFactory.getTranscriptionService()
@@ -55,18 +59,29 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
     )
 
     // Store transcription in database
-    const transcription = await VideoTranscription.create({
-      videoId: videoId,
-      revisionNumber: 1,
-      status: TranscriptionStatus.AUTO_GENERATED,
-      transcriptionText: result.text,
-      language: result.language,
-      confidence: result.confidence || null,
-      isCurrent: true,
-      segmentsJson: result.segments ? JSON.stringify(result.segments) : null,
-      pointsAwarded: 0,
-      generatedAt: DateTime.now(),
+    const transcription = await db.transaction(async (client) => {
+      const currentVideo = await Video.query({ client }).where('id', videoId).forUpdate().first()
+      if (!currentVideo || currentVideo.skipAutoTranscription) return null
+      if (await VideoTranscription.query({ client }).where({ videoId, isCurrent: true }).first()) {
+        return null
+      }
+      return VideoTranscription.create(
+        {
+          videoId: videoId,
+          revisionNumber: 1,
+          status: TranscriptionStatus.AUTO_GENERATED,
+          transcriptionText: result.text,
+          language: result.language,
+          confidence: result.confidence || null,
+          isCurrent: true,
+          segmentsJson: result.segments ? JSON.stringify(result.segments) : null,
+          pointsAwarded: 0,
+          generatedAt: DateTime.now(),
+        },
+        { client }
+      )
     })
+    if (!transcription) return { success: true, data: { skipped: true } }
 
     console.log(`[Transcription] Stored in database with id: ${transcription.id}`)
 
@@ -136,18 +151,31 @@ export async function processTranscriptionJob(job: Job<TranscriptionJobData>): P
 
     // Store failed transcription record
     try {
-      await VideoTranscription.create({
-        videoId: videoId,
-        revisionNumber: 1,
-        status: TranscriptionStatus.FAILED,
-        transcriptionText: '',
-        language: language || 'fr',
-        confidence: null,
-        isCurrent: true,
-        segmentsJson: null,
-        pointsAwarded: 0,
-        generatedAt: DateTime.now(),
+      const inserted = await db.transaction(async (client) => {
+        const video = await Video.query({ client }).where('id', videoId).forUpdate().first()
+        if (!video || video.skipAutoTranscription) return null
+        if (
+          await VideoTranscription.query({ client }).where({ videoId, isCurrent: true }).first()
+        ) {
+          return null
+        }
+        return VideoTranscription.create(
+          {
+            videoId: videoId,
+            revisionNumber: 1,
+            status: TranscriptionStatus.FAILED,
+            transcriptionText: '',
+            language: language || 'fr',
+            confidence: null,
+            isCurrent: true,
+            segmentsJson: null,
+            pointsAwarded: 0,
+            generatedAt: DateTime.now(),
+          },
+          { client }
+        )
       })
+      if (!inserted) return { success: true, data: { skipped: true } }
 
       // Send to dead letter queue for admin review
       const queueService = new QueueService()

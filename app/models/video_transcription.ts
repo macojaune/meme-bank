@@ -9,6 +9,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
  * Status of a transcription revision
  */
 export enum TranscriptionStatus {
+  IMPORTED = 'imported',
   AUTO_GENERATED = 'auto_generated',
   COMMUNITY_CORRECTED = 'community_corrected',
   ADMIN_VALIDATED = 'admin_validated',

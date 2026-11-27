@@ -8,6 +8,8 @@
 */
 
 import { middleware } from '#start/kernel'
+import { canViewVideo } from '#services/video_access'
+import { videoDisk } from '#services/video_storage'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 
@@ -31,7 +33,7 @@ router.get('/', async ({ inertia, auth }) => {
   try {
     const { default: User } = await import('#models/user')
     const { default: Video } = await import('#models/video')
-    const { getVideoPublicUrl } = await import('#utils/url_helper')
+    const { videoAssetUrl } = await import('#utils/url_helper')
 
     const [leaderboardData, videos] = await Promise.all([
       User.query().where('totalPoints', '>', 0).orderBy('totalPoints', 'desc').limit(5),
@@ -47,8 +49,8 @@ router.get('/', async ({ inertia, auth }) => {
     previewVideos = videos.map((video) => ({
       id: video.id,
       title: video.title,
-      thumbnailPath: video.thumbnailPath ? getVideoPublicUrl(video.thumbnailPath) : null,
-      filePath: getVideoPublicUrl(video.filePath),
+      thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+      filePath: videoAssetUrl(video, 'media')!,
       region: video.region,
       durationSeconds: video.durationSeconds,
     }))
@@ -138,11 +140,17 @@ router.group(() => {
   router.post('/reset-password', '#controllers/auth_controller.resetPassword')
 })
 
+router.post('/api/agent/video-import', '#controllers/agent_video_imports_controller.store')
+
 // Public video routes
 router
   .group(() => {
     // Get published videos with pagination
     router.get('/videos', '#controllers/video_controller.publicIndex')
+
+    router
+      .get('/videos/:id/:asset', '#controllers/video_controller.media')
+      .where('asset', /media|thumbnail/)
 
     // Get video details (for public viewing)
     router.get('/videos/:id', '#controllers/video_controller.show')
@@ -199,7 +207,7 @@ router
     router.get('/dashboard', async ({ inertia, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: Like } = await import('#models/like')
-      const { getPublicUrl } = await import('#utils/url_helper')
+      const { videoAssetUrl } = await import('#utils/url_helper')
 
       // Get user's videos count
       const videoCount = await Video.query().where('user_id', auth.user!.id).count('* as total')
@@ -237,8 +245,8 @@ router
             id: v.id,
             title: v.title,
             description: v.description,
-            filePath: getPublicUrl(v.filePath),
-            thumbnailPath: v.thumbnailPath ? getPublicUrl(v.thumbnailPath) : null,
+            filePath: videoAssetUrl(v, 'media'),
+            thumbnailPath: videoAssetUrl(v, 'thumbnail'),
             durationSeconds: v.durationSeconds,
             isPublished: v.isPublished,
             region: v.region,
@@ -260,9 +268,9 @@ router
           id: v.id,
           title: v.title,
           description: v.description,
-          filePath: v.filePath,
+          filePath: videoAssetUrl(v, 'media'),
           durationSeconds: v.durationSeconds,
-          thumbnailPath: v.thumbnailPath,
+          thumbnailPath: videoAssetUrl(v, 'thumbnail'),
           isPublished: v.isPublished,
           region: v.region,
           viewCount: v.viewCount,
@@ -294,7 +302,7 @@ router
     router.get('/gallery', async ({ inertia, auth }) => {
       const { default: Video } = await import('#models/video')
       const { default: Like } = await import('#models/like')
-      const { getPublicUrl } = await import('#utils/url_helper')
+      const { videoAssetUrl } = await import('#utils/url_helper')
 
       // Get published videos OR user's own videos (even if pending)
       const videos = await Video.query()
@@ -315,8 +323,8 @@ router
       // Transform URLs from internal (minio:9000) to public (localhost:9000)
       const transformedVideos = videos.all().map((video) => ({
         ...video.toJSON(),
-        filePath: getPublicUrl(video.filePath),
-        thumbnailPath: video.thumbnailPath ? getPublicUrl(video.thumbnailPath) : null,
+        filePath: videoAssetUrl(video, 'media'),
+        thumbnailPath: videoAssetUrl(video, 'thumbnail'),
         isPublished: video.isPublished,
       }))
 
@@ -343,10 +351,10 @@ router
     // Video streaming route (proxy through app to avoid CORS issues)
     router.get('/videos/stream/:id', async ({ params, response, auth }) => {
       const { default: Video } = await import('#models/video')
-      const { default: drive } = await import('@adonisjs/drive/services/main')
 
       try {
-        const video = await Video.findOrFail(params.id)
+        const video = await Video.find(params.id)
+        if (!video || !canViewVideo(video, auth.user?.id)) return response.notFound()
 
         // Increment view count when serving video (skip for owner)
         if (video.userId !== auth.user!.id) {
@@ -355,7 +363,7 @@ router
         }
 
         // Get video content from MinIO
-        const videoBuffer = await drive.use('spaces').getBytes(video.filePath)
+        const videoBuffer = await videoDisk(video.skipAutoTranscription).getBytes(video.filePath)
 
         // Determine content type from file extension
         const ext = video.filePath.split('.').pop()?.toLowerCase()
@@ -372,7 +380,10 @@ router
         response.header('Content-Type', contentType)
         response.header('Content-Length', videoBuffer.length.toString())
         response.header('Accept-Ranges', 'bytes')
-        response.header('Cache-Control', 'public, max-age=3600')
+        response.header(
+          'Cache-Control',
+          video.isPublished ? 'public, max-age=3600' : 'private, no-store'
+        )
 
         return response.send(videoBuffer)
       } catch (error) {

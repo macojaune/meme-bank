@@ -1,180 +1,32 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Video from '#models/video'
-import Person from '#models/person'
 import Like from '#models/like'
-import drive from '@adonisjs/drive/services/main'
-import QueueService from '#services/queue_service'
+import { videoDisk } from '#services/video_storage'
+import { canViewVideo } from '#services/video_access'
 import logger from '@adonisjs/core/services/logger'
-import { randomUUID } from 'node:crypto'
-import { DateTime } from 'luxon'
 import emitter from '@adonisjs/core/services/emitter'
-import VideoUploaded from '#events/video_uploaded'
+import { validatedVideo, persistWebUpload, dispatchVideoUpload } from '#services/video_upload'
 import VideoDownloaded from '#events/video_downloaded'
 
 export default class VideoUploadController {
-  /**
-   * Ensure bucket exists
-   */
-  private async ensureBucket() {
-    const { S3Client, CreateBucketCommand } = await import('@aws-sdk/client-s3')
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY
-    const endpoint =
-      process.env.R2_ENDPOINT || process.env.MINIO_ENDPOINT || 'http://localhost:9000'
-
-    if (!accessKeyId || !secretAccessKey) {
-      throw new Error('Object storage credentials are not configured')
-    }
-
-    // R2 buckets are provisioned outside the application. Object-scoped keys
-    // should never need account-level permission to create buckets.
-    if (process.env.R2_ENDPOINT) return
-
-    const client = new S3Client({
-      endpoint,
-      region: process.env.R2_REGION || process.env.MINIO_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-      forcePathStyle: true,
-    })
-
-    try {
-      await client.send(
-        new CreateBucketCommand({
-          Bucket: process.env.R2_BUCKET || process.env.MINIO_BUCKET || 'memes',
-        })
-      )
-    } catch (error: any) {
-      // Bucket already exists - ignore
-      if (
-        error.name === 'BucketAlreadyOwnedByYou' ||
-        error.name === 'BucketAlreadyExists' ||
-        error.message?.includes('already own it')
-      ) {
-        return
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Upload a new video file
-   */
   async upload({ request, response, auth }: HttpContext) {
+    const file = validatedVideo(request)
+    if (!file || !file.isValid || !file.tmpPath) {
+      return response.badRequest({ error: 'Invalid video', message: file?.errors })
+    }
     try {
-      // Ensure bucket exists
-      await this.ensureBucket()
-
-      // Validate the uploaded file
-      const file = request.file('video', {
-        size: '10mb',
-        extnames: ['mp4', 'webm', 'ogg', 'avi'],
-      })
-
-      if (!file) {
-        return response.badRequest({ error: 'No video file provided' })
-      }
-
-      // Validate file properties
-      if (!file.isValid) {
-        return response.badRequest({
-          error: 'Invalid file format',
-          message: file.errors || 'File validation failed',
-        })
-      }
-
-      // Generate secure random filename
-      const fileExt = file.extname || 'mp4'
-      const filename = `${randomUUID()}.${fileExt}`
-      const filePath = `videos/${filename}`
-
-      // Read file content and upload to Drive (MinIO)
-      const fs = await import('node:fs')
-      const fileContent = fs.readFileSync(file.tmpPath!)
-      await drive.use('spaces').put(filePath, fileContent)
-
-      // Get region from request
-      const region = request.input('region')
-
-      // Validate region (optional, but must be one of allowed values if provided)
-      const allowedRegions = ['guadeloupe', 'martinique', 'guyane']
-      const validatedRegion = region && allowedRegions.includes(region) ? region : null
-
-      // Create video record in database
-      const video = await Video.create({
-        userId: auth.user!.id,
-        title: request.input('title', file.clientName),
+      const user = auth.user!
+      const video = await persistWebUpload(file, user, {
+        title: request.input('title') ?? file.clientName,
         description: request.input('description'),
-        filePath: filePath,
-        thumbnailPath: null, // Will be set after processing
-        durationSeconds: 0, // Will be extracted from video
-        uploadDate: DateTime.now(),
-        isPublished: false,
-        isFeatured: false,
-        viewCount: 0,
-        likeCount: 0,
-        region: validatedRegion,
+        region: request.input('region'),
+        personsData: request.input('persons'),
       })
-
-      // Attach persons to video if provided
-      const personsData = request.input('persons')
-      if (personsData && Array.isArray(personsData) && personsData.length > 0) {
-        const personIds: string[] = []
-
-        for (const personData of personsData) {
-          let person: Person | null = null
-
-          if (personData.id && personData.id.startsWith('temp-')) {
-            // Create new person for temporary IDs
-            person = await Person.create({
-              name: personData.name,
-              socialMediaHandle: personData.socialMediaHandle || null,
-              platform: personData.platform || null,
-              bio: null,
-            })
-          } else if (personData.id) {
-            // Find existing person by ID
-            person = await Person.find(personData.id)
-          }
-
-          if (person) {
-            personIds.push(person.id)
-          }
-        }
-
-        // Attach all persons to the video
-        if (personIds.length > 0) {
-          await video.related('persons').attach(personIds)
-        }
-      }
-
-      // Queue transcription job after successful upload
-      try {
-        const queueService = new QueueService()
-        await queueService.addJob('transcription', {
-          videoId: video.id,
-          filePath: filePath,
-          language: 'fr', // Default to French for Caribbean memes
-        })
-        console.log(`[Upload] Transcription job queued for video ${video.id}`)
-      } catch (queueError) {
-        // Don't fail the upload if queuing fails, just log it
-        console.error('[Upload] Failed to queue transcription job:', queueError)
-      }
-
-      // Emit event for points system
-      await emitter.emit(VideoUploaded, new VideoUploaded(video, auth.user!))
-
-      // Redirect to gallery after successful upload (Inertia will handle this)
+      await dispatchVideoUpload(video, user)
       return response.redirect().toPath('/gallery')
     } catch (error) {
-      console.error('Upload error:', error)
-      return response.internalServerError({
-        error: 'Upload failed',
-        message: error.message,
-      })
+      logger.error({ err: error }, 'Upload failed')
+      return response.internalServerError({ error: 'Upload failed' })
     }
   }
 
@@ -200,7 +52,9 @@ export default class VideoUploadController {
 
     // Apply search filter
     if (search) {
-      query.where('title', 'ilike', `%${search}%`).orWhere('description', 'ilike', `%${search}%`)
+      query.where((filter) => {
+        filter.where('title', 'ilike', `%${search}%`).orWhere('description', 'ilike', `%${search}%`)
+      })
     }
 
     // Apply language filter
@@ -260,7 +114,7 @@ export default class VideoUploadController {
       }
 
       // Delete file from storage
-      const driveService = drive.use('spaces')
+      const driveService = videoDisk(video.skipAutoTranscription)
       logger.info(`[Delete] Deleting video file: ${video.filePath}`)
       await driveService.delete(video.filePath)
 
@@ -285,6 +139,45 @@ export default class VideoUploadController {
     }
   }
 
+  async media({ params, request, response, auth }: HttpContext) {
+    const video = await Video.find(params.id)
+    if (!video || !video.skipAutoTranscription || !canViewVideo(video, auth.user?.id)) {
+      return response.notFound()
+    }
+
+    const thumbnail = params.asset === 'thumbnail'
+    const key = thumbnail ? video.thumbnailPath : video.filePath
+    if (!key) return response.notFound()
+
+    const disk = videoDisk(true)
+    const contents = await disk.getBytes(key)
+    const ext = key.split('.').pop()
+    const mimeTypes: Record<string, string> = {
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      ogg: 'video/ogg',
+      avi: 'video/x-msvideo',
+      jpg: 'image/jpeg',
+    }
+    response.header('Content-Type', mimeTypes[ext ?? ''] ?? 'application/octet-stream')
+    response.header('Cache-Control', 'private, no-store')
+    response.header('Accept-Ranges', 'bytes')
+
+    const range = request.header('range')?.match(/^bytes=(\d*)-(\d*)$/)
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, contents.length - Number(range[2]))
+      const end =
+        range[1] && range[2] ? Math.min(Number(range[2]), contents.length - 1) : contents.length - 1
+      if (start > end) {
+        response.header('Content-Range', `bytes */${contents.length}`)
+        return response.status(416).send('')
+      }
+      response.header('Content-Range', `bytes ${start}-${end}/${contents.length}`)
+      return response.status(206).send(contents.subarray(start, end + 1))
+    }
+    return response.send(contents)
+  }
+
   /**
    * Get signed URL for video (for private videos)
    */
@@ -301,7 +194,10 @@ export default class VideoUploadController {
       await video.save()
 
       // Generate signed URL
-      const driveService = drive.use('spaces')
+      if (video.skipAutoTranscription) {
+        return response.ok({ url: `/api/v1/videos/${video.id}/media` })
+      }
+      const driveService = videoDisk(video.skipAutoTranscription)
       const url = await driveService.getSignedUrl(video.filePath, {
         expiresIn: '1h',
       })
@@ -366,8 +262,7 @@ export default class VideoUploadController {
     try {
       const video = await Video.findOrFail(params.id)
 
-      // Allow liking even if not published (user's own videos)
-      // Skip this check
+      if (!canViewVideo(video, auth.user?.id)) return response.notFound()
 
       // Check if user already liked the video
       const existingLike = await Like.query()
@@ -417,7 +312,8 @@ export default class VideoUploadController {
       logger.info(`[Download] Starting download for video ${video.id}, filePath: ${video.filePath}`)
 
       // Vérifier si le fichier existe avant de tenter de le récupérer
-      const exists = await drive.use('spaces').exists(video.filePath)
+      if (!canViewVideo(video, auth.user?.id)) return response.notFound()
+      const exists = await videoDisk(video.skipAutoTranscription).exists(video.filePath)
       if (!exists) {
         logger.error(`[Download] File not found in storage: ${video.filePath}`)
         return response.notFound({ error: 'Video file not found in storage' })
@@ -435,12 +331,15 @@ export default class VideoUploadController {
 
       // Stream the video
       logger.info(`[Download] Retrieving file from storage: ${video.filePath}`)
-      const videoBuffer = await drive.use('spaces').getBytes(video.filePath)
+      const videoBuffer = await videoDisk(video.skipAutoTranscription).getBytes(video.filePath)
 
       logger.info(`[Download] File retrieved successfully, size: ${videoBuffer.length} bytes`)
 
       response.header('Content-Type', 'video/mp4')
-      response.header('Content-Disposition', `attachment; filename="${video.title}.mp4"`)
+      response.header(
+        'Content-Disposition',
+        `attachment; filename="${video.skipAutoTranscription ? 'video' : video.title}.mp4"`
+      )
 
       return response.send(videoBuffer)
     } catch (error) {

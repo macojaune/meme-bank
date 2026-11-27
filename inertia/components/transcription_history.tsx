@@ -68,8 +68,9 @@ export default function TranscriptionHistory({ videoId }: TranscriptionHistoryPr
         {revisions.map((revision, index) => (
           <div
             key={revision.id}
-            className={`p-3 border-b border-gray-200 last:border-b-0 ${index === 0 ? 'bg-green-50' : ''
-              }`}
+            className={`p-3 border-b border-gray-200 last:border-b-0 ${
+              index === 0 ? 'bg-green-50' : ''
+            }`}
           >
             <div
               className="flex justify-between items-center cursor-pointer"
@@ -78,14 +79,16 @@ export default function TranscriptionHistory({ videoId }: TranscriptionHistoryPr
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-gray-600">#{revision.revisionNumber}</span>
                 <span
-                  className={`text-xs px-2 py-1 rounded ${revision.status === 'auto_generated'
+                  className={`text-xs px-2 py-1 rounded ${
+                    revision.status === 'auto_generated'
                       ? 'bg-yellow-100'
                       : revision.status === 'community_corrected'
                         ? 'bg-green-100'
                         : 'bg-purple-100'
-                    }`}
+                  }`}
                 >
                   {revision.status === 'auto_generated' && '🤖 Auto'}
+                  {revision.status === 'imported' && 'Importée'}
                   {revision.status === 'community_corrected' && '👥 Communauté'}
                   {revision.status === 'admin_validated' && '✅ Validé'}
                 </span>

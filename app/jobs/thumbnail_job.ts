@@ -1,7 +1,7 @@
 import type { Job } from 'bullmq'
 import type { JobData, JobResult } from './types.js'
 import Video from '../models/video.js'
-import drive from '@adonisjs/drive/services/main'
+import { videoDisk } from '#services/video_storage'
 import { exec } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -18,7 +18,10 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
     filePath: string
     timestamp?: number
   }
-  const timestamp = (job.data as any).timestamp || 1
+  const video = await Video.find(videoId)
+  if (!video) return { success: true, data: { skipped: true } }
+  const timestamp = (job.data as any).timestamp ?? (video.skipAutoTranscription ? 0 : 1)
+  const disk = videoDisk(video.skipAutoTranscription)
 
   console.log(`[Thumbnail] Processing job ${job.id} for video ${videoId}`)
 
@@ -28,7 +31,7 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
   try {
     // Step 1: Download video from S3 to temp location
     console.log(`[Thumbnail] Downloading ${filePath} from S3...`)
-    tempVideoPath = await downloadFromS3(filePath)
+    tempVideoPath = await downloadFromS3(filePath, disk)
     console.log(`[Thumbnail] Downloaded to ${tempVideoPath}`)
 
     // Step 2: Generate thumbnail using ffmpeg
@@ -58,15 +61,14 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
     const thumbnailKey = `thumbnails/${videoId}.jpg`
     const thumbnailBuffer = await fs.readFile(tempThumbnailPath)
 
-    await drive.use('spaces').put(thumbnailKey, thumbnailBuffer, {
+    await disk.put(thumbnailKey, thumbnailBuffer, {
       contentType: 'image/jpeg',
-      visibility: 'public',
+      visibility: video.skipAutoTranscription ? 'private' : 'public',
     })
 
     console.log(`[Thumbnail] Uploaded to ${thumbnailKey}`)
 
     // Step 4: Update video record
-    const video = await Video.find(videoId)
     if (video) {
       video.thumbnailPath = thumbnailKey
       await video.save()
@@ -104,13 +106,13 @@ export async function processThumbnailJob(job: Job<JobData>): Promise<JobResult>
 /**
  * Download file from S3/MinIO to temp location
  */
-async function downloadFromS3(s3Path: string): Promise<string> {
+async function downloadFromS3(s3Path: string, disk: ReturnType<typeof videoDisk>): Promise<string> {
   const tempDir = tmpdir()
   const fileId = uuidv4()
   const ext = s3Path.split('.').pop() || '.mp4'
   const tempFilePath = join(tempDir, `${fileId}.${ext}`)
 
-  const fileBuffer = await drive.use('spaces').getBytes(s3Path)
+  const fileBuffer = await disk.getBytes(s3Path)
   await fs.writeFile(tempFilePath, fileBuffer)
 
   return tempFilePath

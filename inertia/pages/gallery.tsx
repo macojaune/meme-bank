@@ -23,6 +23,7 @@ interface Video {
   likeCount: number
   userId: string
   isPublished: boolean
+  skipAutoTranscription?: boolean
   persons?: Person[]
 }
 
@@ -109,7 +110,7 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
 
     setIsSearching(true)
     try {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ includeOwnImports: '1' })
       if (filters.query) params.append('q', filters.query)
       if (filters.region) params.append('region', filters.region)
       params.append('sortBy', filters.sortBy)
@@ -244,7 +245,7 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
 
     // Perform search with URL params directly
     const doSearch = async () => {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ includeOwnImports: '1' })
       if (query) params.append('q', query)
       if (region) params.append('region', region)
       params.append('sortBy', sortBy)

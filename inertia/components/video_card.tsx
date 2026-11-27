@@ -16,6 +16,7 @@ interface Video {
   viewCount: number
   likeCount: number
   isPublished: boolean
+  skipAutoTranscription?: boolean
   region: string | null
   createdAt: string
   userId: string
@@ -132,7 +133,8 @@ export default function VideoCard({
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const isProcessing = !video.isPublished
+  const isProcessing = !video.isPublished && !video.skipAutoTranscription
+  const title = video.title || 'Sans titre'
   const persons = video.persons || []
   const region = getRegionDisplay(video.region)
 
@@ -149,10 +151,13 @@ export default function VideoCard({
     >
       {/* Thumbnail */}
       <div className="aspect-video bg-gray-100 relative overflow-hidden">
-        {!imageError && (
+        {!imageError && (video.thumbnailPath || !video.skipAutoTranscription) && (
           <img
-            src={getThumbnailUrl(video.id)}
-            alt={video.title}
+            src={
+              video.thumbnailPath ||
+              (video.skipAutoTranscription ? undefined : getThumbnailUrl(video.id))
+            }
+            alt={title}
             className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             } ${isProcessing ? 'grayscale' : ''}`}
@@ -167,7 +172,7 @@ export default function VideoCard({
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-yellow-300 to-pink-400 p-4 absolute inset-0">
             <span className="text-4xl mb-2">🎬</span>
             <p className="text-sm font-bold text-center text-black uppercase line-clamp-2">
-              {video.title}
+              {title}
             </p>
           </div>
         )}
@@ -201,7 +206,7 @@ export default function VideoCard({
         <h3
           className={`font-black uppercase truncate mb-2 text-sm leading-tight ${isProcessing ? 'text-gray-500' : 'text-black'}`}
         >
-          {video.title}
+          {title}
         </h3>
 
         {/* Tags */}

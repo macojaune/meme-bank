@@ -59,6 +59,9 @@ export default class Video extends BaseModel {
   declare isPublished: boolean
 
   @column()
+  declare skipAutoTranscription: boolean
+
+  @column()
   declare isFeatured: boolean
 
   @column()

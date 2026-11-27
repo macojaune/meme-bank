@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { videoAssetUrl } from '#utils/url_helper'
 import Video from '#models/video'
 import VideoTranscription from '#models/video_transcription'
 import Person from '#models/person'
@@ -8,7 +9,7 @@ export default class SearchController {
   /**
    * Universal search across videos with filters
    */
-  async search({ request, response }: HttpContext) {
+  async search({ request, response, auth }: HttpContext) {
     try {
       const query = request.input('q', '')
       const region = request.input('region', '')
@@ -25,7 +26,12 @@ export default class SearchController {
 
       // Start with base query - only published videos for public gallery
       let videoQuery = Video.query()
-        .where('is_published', true)
+        .where((visibility) => {
+          visibility.where('is_published', true)
+          if (auth.user && request.input('includeOwnImports') === '1') {
+            visibility.orWhere({ user_id: auth.user.id, skip_auto_transcription: true })
+          }
+        })
         .preload('transcriptions', (q) => {
           q.where('is_current', true)
         })
@@ -88,7 +94,8 @@ export default class SearchController {
         id: video.id,
         title: video.title,
         description: video.description,
-        thumbnailPath: video.thumbnailPath,
+        thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+        skipAutoTranscription: video.skipAutoTranscription,
         durationSeconds: video.durationSeconds,
         viewCount: video.viewCount,
         likeCount: video.likeCount,
@@ -141,7 +148,8 @@ export default class SearchController {
       const formattedVideos = videos.map((video) => ({
         id: video.id,
         title: video.title,
-        thumbnailPath: video.thumbnailPath,
+        thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+        skipAutoTranscription: video.skipAutoTranscription,
         viewCount: video.viewCount,
         likeCount: video.likeCount,
         region: video.region,

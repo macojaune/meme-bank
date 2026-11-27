@@ -4,6 +4,8 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from './user.js'
 
 export default class PointsHistory extends BaseModel {
+  static table = 'points_history'
+
   @column({ isPrimary: true })
   declare id: string
 

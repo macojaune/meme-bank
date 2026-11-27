@@ -2,7 +2,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import Person from '#models/person'
 import Video from '#models/video'
 import logger from '@adonisjs/core/services/logger'
-import { canManageVideo } from '#services/video_access'
+import { canManageVideo, canViewVideo } from '#services/video_access'
 
 export default class PersonsController {
   /**
@@ -65,9 +65,10 @@ export default class PersonsController {
   /**
    * Get all persons for a video
    */
-  async index({ params, response }: HttpContext) {
+  async index({ params, response, auth }: HttpContext) {
     try {
-      const video = await Video.findOrFail(params.videoId)
+      const video = await Video.find(params.videoId)
+      if (!video || !canViewVideo(video, auth.user?.id)) return response.notFound()
       await video.load('persons')
 
       return response.ok({

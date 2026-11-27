@@ -51,3 +51,17 @@ export function getVideoPublicUrl(filePath: string): string {
 
   return buildObjectPublicUrl(filePath, publicEndpoint, r2PublicUrl ? undefined : bucket)
 }
+
+export function videoAssetUrl(
+  video: {
+    id: string
+    skipAutoTranscription: boolean
+    filePath: string
+    thumbnailPath: string | null
+  },
+  asset: 'media' | 'thumbnail'
+) {
+  const key = asset === 'media' ? video.filePath : video.thumbnailPath
+  if (!key) return null
+  return video.skipAutoTranscription ? `/api/v1/videos/${video.id}/${asset}` : getPublicUrl(key)
+}

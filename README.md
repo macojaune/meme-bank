@@ -74,6 +74,23 @@ Event listeners in [`start/events.ts`](/Users/marvinl/Documents/DEV/meme-bank/st
 
 Points-earned events are broadcast over Transmit for per-user toast notifications.
 
+## CLI video import
+
+See [llm.txt](llm.txt) for client installation, upload tokens and examples. The
+web form keeps its existing automatic transcription workflow. CLI imports use
+the same file validation and upload event, with an optional imported transcript
+and publication on explicit request.
+
+Configure a private object bucket for CLI imports. With R2, set
+`R2_PRIVATE_BUCKET` and credentials that can read/write/delete in that bucket
+(`R2_PRIVATE_ACCESS_KEY_ID` and `R2_PRIVATE_SECRET_ACCESS_KEY` if separate).
+Leave all public access disabled for this bucket. Local MinIO uses
+`MINIO_PRIVATE_BUCKET` (default `memes-agent-private`) and its existing
+credentials. The web app authorizes reads of CLI assets, including thumbnails.
+Run `node ace migration:run` and the existing `node ace queue:work all` on the same
+release as the web application. Both processes must use the same database,
+object storage and Redis.
+
 ## Analytics
 
 Umami is loaded once from the shared Edge layout using the MemeBank website ID
