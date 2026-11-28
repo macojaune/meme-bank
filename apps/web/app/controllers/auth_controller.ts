@@ -1,12 +1,13 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
-import { randomBytes } from 'node:crypto'
-import { DateTime } from 'luxon'
 import vine from '@vinejs/vine'
 import BetaInvitationService, {
   InvalidInvitationError,
   INVITATION_MESSAGE,
 } from '#services/beta_invitation_service'
+
+import logger from '@adonisjs/core/services/logger'
+import { issuePasswordReset, consumePasswordReset } from '#services/password_reset_service'
 
 const INVITATION_SESSION_KEY = 'betaInvitationHash'
 
@@ -34,8 +35,8 @@ export const forgotPasswordValidator = vine.compile(
 
 export const resetPasswordValidator = vine.compile(
   vine.object({
-    token: vine.string(),
-    password: vine.string().minLength(8),
+    token: vine.string().regex(/^[a-f0-9]{64}$/),
+    password: vine.string().minLength(8).maxLength(256),
     passwordConfirmation: vine.string().sameAs('password'),
   })
 )
@@ -151,68 +152,52 @@ export default class AuthController {
     return response.redirect('/')
   }
 
-  /**
-   * Request password reset token
-   */
-  async forgotPassword({ request, response }: HttpContext) {
-    try {
-      // Validate request data using VineJS
-      const { email } = await forgotPasswordValidator.validate(request.body())
-
-      // Find user by email
-      const user = await User.findBy('email', email)
-
-      // Generate reset token even if user doesn't exist (security best practice)
-      const token = randomBytes(32).toString('hex')
-      const expiresAt = DateTime.now().plus({ hours: 1 })
-
-      if (user) {
-        // Store token and expiry in user record
-        user.resetToken = token
-        user.resetTokenExpiresAt = expiresAt
-        await user.save()
-
-        // Email delivery is intentionally handled outside logs so reset tokens never leak.
-      }
-
-      // Always return success to prevent email enumeration
-      return response.ok({
-        message: 'If your email is registered, you will receive a password reset link',
-      })
-    } catch (error) {
-      return response.badRequest({
-        message: 'Password reset request failed. Please try again.',
-      })
-    }
+  async showResetPassword({ response, inertia }: HttpContext) {
+    response.header('Cache-Control', 'no-store')
+    response.header('Referrer-Policy', 'no-referrer')
+    return inertia.render('auth/reset-password')
   }
 
-  /**
-   * Reset password using token
-   */
-  async resetPassword({ request, response }: HttpContext) {
+  async forgotPassword({ request, response }: HttpContext) {
+    response.header('Cache-Control', 'no-store')
+    let data: Awaited<ReturnType<typeof forgotPasswordValidator.validate>>
     try {
-      // Validate request data using VineJS
-      const data = await resetPasswordValidator.validate(request.body())
+      data = await forgotPasswordValidator.validate(request.body())
+    } catch {
+      return response.badRequest({ message: 'Saisis une adresse e-mail valide.' })
+    }
 
-      // Find user by reset token
-      const user = await User.findBy('resetToken', data.token)
+    try {
+      await issuePasswordReset(data.email.trim().toLowerCase())
+    } catch {
+      logger.error('Password reset email could not be requested')
+    }
 
-      // Check if user exists and token is valid
-      if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < DateTime.now()) {
-        return response.badRequest({ message: 'Invalid or expired token' })
-      }
+    // Use the same response for unknown accounts and delivery failures.
+    return response.ok({
+      message: 'Si un compte correspond à cette adresse, tu recevras un lien de réinitialisation.',
+    })
+  }
 
-      // Update password
-      user.password = data.password
-      user.resetToken = null
-      user.resetTokenExpiresAt = null
-      await user.save()
-
-      return response.ok({ message: 'Password has been reset successfully' })
-    } catch (error) {
+  async resetPassword({ request, response }: HttpContext) {
+    response.header('Cache-Control', 'no-store')
+    let data: Awaited<ReturnType<typeof resetPasswordValidator.validate>>
+    try {
+      data = await resetPasswordValidator.validate(request.body())
+    } catch {
       return response.badRequest({
-        message: 'Password reset failed. Please try again.',
+        message: 'Le lien doit être valide et les deux mots de passe doivent correspondre.',
       })
+    }
+
+    try {
+      if (!(await consumePasswordReset(data.token, data.password))) {
+        return response.badRequest({ message: 'Ce lien est invalide, expiré ou déjà utilisé.' })
+      }
+      return response.ok({ reset: true })
+    } catch {
+      logger.error('Password reset could not be completed')
+      return response.serviceUnavailable({ message: 'Réinitialisation indisponible. Réessaie.' })
     }
   }
 }
