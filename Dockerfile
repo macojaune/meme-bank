@@ -17,15 +17,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /app
+WORKDIR /workspace
 
 # Copy package files first (for better caching)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/package.json
+COPY cli/ cli/
 
 # Install dependencies with the same pnpm release used to generate the lockfile.
 RUN corepack enable && \
     corepack prepare pnpm@10.20.0 --activate && \
-    pnpm install --frozen-lockfile
+    pnpm --filter @memebank/web... install --frozen-lockfile
 
 # Build and install whisper.cpp (using v1.6.2 stable version)
 RUN git clone --branch v1.6.2 --depth 1 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
@@ -45,11 +47,12 @@ RUN mkdir -p /models && \
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin" \
     --progress=bar:force:noscroll
 
-# Copy application code
-COPY . .
+# Copy the web source and preserve the existing /app/build operator path.
+COPY apps/web/ apps/web/
+RUN ln -s /workspace/apps/web /app
 
 # Build the application and fail the image build on TypeScript errors
-RUN pnpm run build
+RUN pnpm --filter @memebank/web build
 
 # Adonis resolves the Vite manifest and other production assets from the
 # compiled application root.

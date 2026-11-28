@@ -1,27 +1,6 @@
-/*
-|--------------------------------------------------------------------------
-| JavaScript entrypoint for running ace commands
-|--------------------------------------------------------------------------
-|
-| DO NOT MODIFY THIS FILE AS IT WILL BE OVERRIDDEN DURING THE BUILD
-| PROCESS.
-|
-| See docs.adonisjs.com/guides/typescript-build-process#creating-production-build
-|
-| Since, we cannot run TypeScript source code using "node" binary, we need
-| a JavaScript entrypoint to run ace commands.
-|
-| This file registers the "ts-node/esm" hook with the Node.js module system
-| and then imports the "bin/console.ts" file.
-|
-*/
+// Keep operator commands and the existing root .env working in the workspace.
+import { fileURLToPath } from 'node:url'
 
-/**
- * Register hook to process TypeScript files using ts-node-maintained
- */
-import 'ts-node-maintained/register/esm'
-
-/**
- * Import ace console entrypoint
- */
-await import('./bin/console.js')
+process.env.ENV_PATH ??= fileURLToPath(new URL('.', import.meta.url))
+process.chdir(fileURLToPath(new URL('./apps/web', import.meta.url)))
+await import('./apps/web/ace.js')
