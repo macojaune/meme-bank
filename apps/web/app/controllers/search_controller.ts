@@ -53,6 +53,7 @@ export default class SearchController {
           q.where('is_current', true)
         })
         .preload('persons')
+        .preload('tags', (q) => q.select('tags.id', 'tags.name').orderBy('tags.name'))
 
       if (videoIds) videoQuery.whereIn('id', videoIds)
 
@@ -123,6 +124,7 @@ export default class SearchController {
         region: video.region,
         createdAt: video.createdAt,
         userId: video.userId,
+        tags: video.tags.map(({ id, name }) => ({ id, name })),
         persons: video.persons.map((p) => ({
           id: p.id,
           name: p.name,

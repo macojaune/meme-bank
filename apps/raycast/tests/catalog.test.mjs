@@ -8,6 +8,7 @@ import {
   orderByRecentIds,
   searchVideos,
   subtitle,
+  videoLabels,
 } from '../src/catalog.ts'
 import { transferAttachment } from '../src/attachment.ts'
 
@@ -115,4 +116,13 @@ test('le jeton reste sur son origine et les appels authentifiés refusent les re
   const opts = fetch.mock.calls[0].arguments[1]
   assert.deepEqual(opts.headers, headers)
   assert.equal(opts.redirect, 'error')
+})
+
+test('affiche les tags et les personnes sans doublons et accepte les anciennes réponses', () => {
+  assert.deepEqual(
+    videoLabels({ tags: [{ name: 'Humour' }], persons: [{ name: ' Jo ' }, { name: 'Humour' }] }),
+    ['Humour', 'Jo']
+  )
+  assert.deepEqual(videoLabels({}), [])
+  assert.equal(subtitle({ description: 'Une description sans transcription' }, ''), '')
 })

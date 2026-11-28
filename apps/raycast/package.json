@@ -43,6 +43,80 @@
       "description": "Jeton personnel délivré pour cette instance MemeBank.",
       "type": "password",
       "required": true
+    },
+    {
+      "name": "cacheRetentionDays",
+      "title": "Conservation des vidéos",
+      "description": "À chaque utilisation d’une vidéo, sa durée de conservation locale repart de zéro.",
+      "type": "dropdown",
+      "required": false,
+      "default": "7",
+      "data": [
+        {
+          "title": "1 jour",
+          "value": "1"
+        },
+        {
+          "title": "7 jours",
+          "value": "7"
+        },
+        {
+          "title": "30 jours",
+          "value": "30"
+        }
+      ]
+    },
+    {
+      "name": "cacheSizeMiB",
+      "title": "Taille du cache vidéo",
+      "description": "Quand cette limite est atteinte, les vidéos les moins récemment utilisées sont supprimées en premier.",
+      "type": "dropdown",
+      "required": false,
+      "default": "256",
+      "data": [
+        {
+          "title": "128 Mio",
+          "value": "128"
+        },
+        {
+          "title": "256 Mio",
+          "value": "256"
+        },
+        {
+          "title": "512 Mio",
+          "value": "512"
+        }
+      ]
+    },
+    {
+      "name": "clipboardMinutes",
+      "title": "Effacer le fichier du presse-papiers",
+      "description": "Durée pendant laquelle le fichier copié reste disponible pour un collage.",
+      "type": "dropdown",
+      "required": false,
+      "default": "5",
+      "data": [
+        {
+          "title": "Jamais",
+          "value": "0"
+        },
+        {
+          "title": "2 minutes",
+          "value": "2"
+        },
+        {
+          "title": "5 minutes",
+          "value": "5"
+        },
+        {
+          "title": "15 minutes",
+          "value": "15"
+        },
+        {
+          "title": "30 minutes",
+          "value": "30"
+        }
+      ]
     }
   ],
   "dependencies": {

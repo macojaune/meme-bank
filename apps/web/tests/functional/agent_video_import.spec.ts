@@ -7,6 +7,7 @@ import { MigrationRunner } from '@adonisjs/lucid/migration'
 import { Queue, QueueEvents, Worker } from 'bullmq'
 import User from '#models/user'
 import Video from '#models/video'
+import Tag from '#models/tag'
 import VideoTranscription from '#models/video_transcription'
 import { processTranscriptionJob } from '#jobs/transcription_job'
 
@@ -338,13 +339,17 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
     assert.deepEqual(new Uint8Array(await media.arrayBuffer()), fixture)
     const publicList = await member.request('/api/v1/search?q=Recette%20publication')
     assert.equal(publicList.status, 200)
-    const { data } = (await publicList.json()) as { data: { id: string }[] }
-    assert.isTrue(data.some((entry) => entry.id === videoId))
+    const { data } = (await publicList.json()) as { data: { id: string; tags: unknown[] }[] }
+    assert.deepEqual(data.find((entry) => entry.id === videoId)?.tags, [])
+
+    const tag = await Tag.create({ name: 'Réaction', slug: 'reaction' })
+    await video.related('tags').attach({ [tag.id]: { id: randomUUID() } })
 
     const recent = await member.request(`/api/v1/search?videoIds=${randomUUID()},${videoId}`)
     assert.equal(recent.status, 200)
-    const recentRows = (await recent.json()) as { data: { id: string }[] }
+    const recentRows = (await recent.json()) as { data: { id: string; tags: unknown[] }[] }
     assert.deepEqual(recentRows.data.map((row) => row.id), [videoId])
+    assert.deepEqual(recentRows.data[0].tags, [{ id: tag.id, name: tag.name }])
     const unknown = await member.request(`/api/v1/search?videoIds=${randomUUID()}`)
     assert.deepEqual(((await unknown.json()) as { data: unknown[] }).data, [])
     const invalid = await member.request('/api/v1/search?videoIds=invalid')

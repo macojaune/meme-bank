@@ -1,6 +1,6 @@
 # MemeBank pour Raycast
 
-Ouvrez un brouillon de message, lancez Raycast, puis tapez **MemeBank**. La commande affiche d’abord les huit dernières vidéos utilisées sur ce Mac, puis les vidéos publiées du catalogue par date de publication. Tapez quelques mots du titre, de la description ou d’une transcription pour chercher une réplique.
+Ouvrez un brouillon de message, lancez Raycast, puis tapez **MemeBank**. La commande affiche d’abord les huit dernières vidéos utilisées sur ce Mac, puis les vidéos publiées du catalogue par date de publication. Chaque ligne affiche le titre et jusqu’à trois tags ou personnes associées. Sans tag ni personne, elle affiche un extrait de la transcription si elle existe. Tapez quelques mots du titre, de la description ou d’une transcription pour chercher une réplique.
 
 | Action | Raccourci |
 | --- | --- |
@@ -28,4 +28,6 @@ La commande apparaît dans Raycast après compilation. Pour lui attribuer un rac
 
 MemeBank interroge `GET /api/v1/search` à l’ouverture et à chaque recherche. Les vidéos publiées arrivent par pages de 25 après authentification. La vignette de la ligne sélectionnée se charge en mémoire. L’extension réinterroge aussi le catalogue pour vérifier que les vidéos récentes restent publiées. Raycast conserve localement leurs identifiants pour chaque instance. La copie d’un fichier et son collage alimentent cet historique.
 
-Les fichiers vidéo se téléchargent à la sélection, dans le sous-dossier `com.memebank.raycast/videos` du répertoire temporaire macOS. Le cache accepte les fichiers jusqu’à 64 Mio. À l’usage, il supprime les fichiers inutilisés depuis sept jours, puis les moins récemment utilisés si le total dépasse 256 Mio. macOS peut également vider ce répertoire. La recherche nécessite une connexion à l’instance.
+Les fichiers vidéo se téléchargent à la sélection, dans le sous-dossier `com.memebank.raycast/videos` du répertoire temporaire macOS. Le cache accepte les fichiers jusqu’à 64 Mio. Les préférences de MemeBank permettent de choisir la durée depuis la dernière utilisation (1, 7 ou 30 jours) et le plafond (128, 256 ou 512 Mio). Par défaut, un fichier reste disponible pendant 7 jours après son dernier usage. Le nettoyage se fait lors d’une utilisation et retire les fichiers les moins récents lorsque le total dépasse 256 Mio. macOS peut également vider ce répertoire. La recherche nécessite une connexion à l’instance.
+
+Le délai du presse-papiers se règle séparément dans les préférences de MemeBank (2, 5, 15 ou 30 minutes, ou « Jamais »). Par défaut, le fichier ou son chemin est effacé après 5 minutes si le presse-papiers contient toujours cette copie. Les nouvelles copies de MemeBank utilisent l’option privée de Raycast pour éviter leur ajout à son historique du presse-papiers. Les huit vidéos récentes de MemeBank et les fichiers du cache restent disponibles après cet effacement.
