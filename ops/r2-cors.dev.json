@@ -2,7 +2,7 @@
   "rules": [
     {
       "allowed": {
-        "origins": ["https://memebank-dev.marvinl.com"],
+        "origins": ["https://dev-memebank.marvinl.com", "https://memebank-dev.marvinl.com"],
         "methods": ["GET", "HEAD"],
         "headers": ["Range"]
       },

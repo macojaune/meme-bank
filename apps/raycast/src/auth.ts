@@ -1,7 +1,7 @@
 import { getPreferenceValues } from '@raycast/api'
 import { bearerForOrigin, catalogOrigin } from './catalog'
 
-export const defaultOrigin = 'https://memebank-dev.marvinl.com'
+export const defaultOrigin = 'https://dev-memebank.marvinl.com'
 
 export function authorizationFor(url: string): Record<string, string> {
   const { baseUrl, readToken } = getPreferenceValues<{ baseUrl?: string; readToken: string }>()

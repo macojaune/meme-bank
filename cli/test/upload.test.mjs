@@ -222,20 +222,22 @@ test('une réponse réussie sans publication ne donne pas un succès CLI', async
   await expectError([video, '--idempotency-key', 'not-published'], 'PUBLICATION_NOT_CONFIRMED')
 })
 
-test('le mode DEV sépare les identifiants ingress et le jeton applicatif', async () => {
-  const env = {
-    MEMEBANK_URL: 'https://memebank-dev.marvinl.com',
-    MEMEBANK_DEV_BASIC_AUTH: `fixture:${randomUUID()}`,
-  }
-  await run([video], env, true)
-  const { headers } = uploads.at(-1)
-  assert.equal(
-    headers.authorization,
-    'Basic ' + Buffer.from(env.MEMEBANK_DEV_BASIC_AUTH).toString('base64')
-  )
-  assert.equal(headers['x-memebank-upload-token'], testToken)
-  await expectError([video], 'INVALID_DEV_AUTH', { ...env, MEMEBANK_URL: origin })
-})
+for (const devOrigin of ['https://dev-memebank.marvinl.com', 'https://memebank-dev.marvinl.com']) {
+  test(`le mode DEV sépare les identifiants ingress et le jeton applicatif sur ${devOrigin}`, async () => {
+    const env = {
+      MEMEBANK_URL: devOrigin,
+      MEMEBANK_DEV_BASIC_AUTH: `fixture:${randomUUID()}`,
+    }
+    await run([video], env, true)
+    const { headers } = uploads.at(-1)
+    assert.equal(
+      headers.authorization,
+      'Basic ' + Buffer.from(env.MEMEBANK_DEV_BASIC_AUTH).toString('base64')
+    )
+    assert.equal(headers['x-memebank-upload-token'], testToken)
+    await expectError([video], 'INVALID_DEV_AUTH', { ...env, MEMEBANK_URL: origin })
+  })
+}
 
 test('le lien direct télécharge avant l’envoi et les requêtes source restent anonymes', async () => {
   await run([video])

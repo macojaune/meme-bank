@@ -22,7 +22,7 @@ pnpm dev:raycast
 
 Depuis votre tableau de bord MemeBank, cliquez sur **Connecter Raycast**, puis copiez le jeton dans le champ **Jeton de lecture MemeBank** de l’extension. Il est valable 30 jours. Chaque jeton est rattaché à un utilisateur de l’instance et peut être révoqué. L’administrateur peut le générer avec `node ace video:read-token issue <user-id> --output /chemin/prive/token` sur le serveur. Raycast enregistre ce secret dans sa préférence de type mot de passe. L’extension le transmet à l’origine configurée avec l’en-tête HTTP Bearer.
 
-La commande apparaît dans Raycast après compilation. Pour lui attribuer un raccourci global, ouvrez **Raycast Settings → Extensions → MemeBank**, puis renseignez le champ **Hotkey** de la commande. L’adresse par défaut est `https://memebank-dev.marvinl.com`. Modifiez **Adresse de MemeBank** dans les préférences pour utiliser une autre instance. [Développer une extension locale](https://developers.raycast.com/basics/getting-started)
+La commande apparaît dans Raycast après compilation. Pour lui attribuer un raccourci global, ouvrez **Raycast Settings → Extensions → MemeBank**, puis renseignez le champ **Hotkey** de la commande. L’adresse par défaut est `https://dev-memebank.marvinl.com`. Modifiez **Adresse de MemeBank** dans les préférences pour utiliser une autre instance. [Développer une extension locale](https://developers.raycast.com/basics/getting-started)
 
 ## Catalogue et fichiers
 

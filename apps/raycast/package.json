@@ -35,7 +35,7 @@
       "description": "Adresse de l’instance qui héberge votre catalogue.",
       "type": "textfield",
       "required": false,
-      "default": "https://memebank-dev.marvinl.com"
+      "default": "https://dev-memebank.marvinl.com"
     },
     {
       "name": "readToken",
