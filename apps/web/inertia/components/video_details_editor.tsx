@@ -1,24 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '~/components/motion/button/base'
 import { Input } from '~/components/motion/input'
-import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectEmpty,
-  MultiSelectInput,
-  MultiSelectItem,
-  MultiSelectList,
-  MultiSelectTrigger,
-  MultiSelectValue,
-} from '~/components/motion/multi-select'
+import CategoryPicker, { type Category } from './category_picker'
 import PersonTagInput from './person_tag_input'
 import { VIDEO_TERRITORIES } from '../../shared/video_territories'
-
-type Category = { id: string; name: string }
-
-function normalizeCategorySearch(text: string) {
-  return text.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '')
-}
 
 export interface VideoDetails {
   id: string
@@ -29,6 +14,31 @@ export interface VideoDetails {
   persons: { id: string; name: string; socialMediaHandle: string | null; platform: string | null }[]
   categories: Category[]
   categoryOptions: Category[]
+}
+
+async function saveError(response: Response) {
+  if (response.status === 401 || response.status === 419) {
+    return 'Ta session a expiré. Reconnecte-toi, puis rouvre la fiche.'
+  }
+  if (response.status === 403) return 'Tu n’as pas l’autorisation de modifier cette fiche.'
+  if (response.status === 404) return 'Cette fiche est devenue indisponible.'
+  if (response.status === 422) {
+    const data = (await response.json().catch(() => null)) as {
+      message?: string
+      errors?: Array<{ field: string }>
+    } | null
+    const field = data?.errors?.[0]?.field?.split('.')[0]
+    const messages: Record<string, string> = {
+      title: 'Le titre doit faire au plus 255 caractères.',
+      region: 'Choisis un territoire dans la liste.',
+      categoryIds: 'Vérifie les catégories de la fiche.',
+      newCategory: 'Le nom de la catégorie doit faire entre 2 et 60 caractères.',
+      personIds: 'Vérifie les personnes déjà associées.',
+      newPeople: 'Le nom d’une personne doit faire entre 2 et 100 caractères.',
+    }
+    return (field && messages[field]) || data?.message || 'Vérifie les valeurs de la fiche.'
+  }
+  return 'Le serveur n’a pas pu enregistrer la fiche. Réessaie dans un instant.'
 }
 
 export default function VideoDetailsEditor({
@@ -61,30 +71,37 @@ export default function VideoDetailsEditor({
     setError('')
 
     try {
-      const csrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='))
-      const response = await fetch(`/api/v1/videos/${details.id}/details`, {
-        method: 'PATCH',
-        credentials: 'same-origin',
-        headers: {
-          'content-type': 'application/json',
-          'accept': 'application/json',
-          'x-xsrf-token': csrf ? decodeURIComponent(csrf.slice('XSRF-TOKEN='.length)) : '',
-        },
-        body: JSON.stringify({
-          title,
-          region: region === (details.region ?? '') ? undefined : region || null,
-          personIds: persons.filter(({ id }) => !id.startsWith('temp-')).map(({ id }) => id),
-          newPeople: persons.filter(({ id }) => id.startsWith('temp-')).map(({ name }) => name),
-          categoryIds,
-          newCategory: newCategory.trim() || undefined,
-        }),
+      const endpoint = `/api/v1/videos/${details.id}/details`
+      const payload = JSON.stringify({
+        title,
+        region: region === (details.region ?? '') ? undefined : region || null,
+        personIds: persons.filter(({ id }) => !id.startsWith('temp-')).map(({ id }) => id),
+        newPeople: persons.filter(({ id }) => id.startsWith('temp-')).map(({ name }) => name),
+        categoryIds,
+        newCategory: newCategory || undefined,
       })
-      if (response.status === 401 || response.status === 403) {
-        setError('Tu n’as pas l’autorisation de modifier cette fiche.')
-        return
+      const send = () => {
+        const csrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+        return fetch(endpoint, {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          redirect: 'error',
+          headers: {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+            'x-xsrf-token': csrf ? decodeURIComponent(csrf.slice('XSRF-TOKEN='.length)) : '',
+          },
+          body: payload,
+        })
+      }
+
+      let response = await send()
+      if (response.status === 419) {
+        const refresh = await fetch(endpoint, { credentials: 'same-origin', redirect: 'error' })
+        response = refresh.ok ? await send() : refresh
       }
       if (!response.ok) {
-        setError('Vérifie le titre, les personnes et les catégories avant de réessayer.')
+        setError(await saveError(response))
         return
       }
       onSave(await response.json())
@@ -138,56 +155,17 @@ export default function VideoDetailsEditor({
             placeholder="Chercher ou ajouter une personne"
           />
         </div>
-        <fieldset className="min-w-0">
-          <legend className="mb-2 text-sm font-black uppercase">Catégories</legend>
-          <MultiSelect
-            value={categoryIds}
-            onValueChange={setCategoryIds}
-            disabled={saving}
-            filter={(_, query, [name = '']) =>
-              normalizeCategorySearch(name).includes(normalizeCategorySearch(query))
-            }
-            labels={{ removeValue: 'Retirer {label}' }}
-          >
-            <MultiSelectTrigger className="min-w-0 rounded-none border-2 border-black bg-white text-black focus-within:ring-black">
-              <MultiSelectValue
-                placeholder=""
-                chipClassName="rounded-none border border-black bg-yellow-300 font-bold text-black [&_button]:text-black"
-              />
-              <MultiSelectInput aria-label="Catégories" placeholder="Rechercher une catégorie" />
-            </MultiSelectTrigger>
-            <MultiSelectContent className="rounded-none border-2 border-black bg-white text-black shadow-[4px_4px_0px_black]">
-              <MultiSelectList ariaLabel="Catégories existantes" className="max-h-48">
-                {categoryOptions.map(({ id, name }) => (
-                  <MultiSelectItem
-                    key={id}
-                    value={id}
-                    className="rounded-none text-black data-[active]:bg-yellow-300 data-[selected]:font-bold"
-                  >
-                    {name}
-                  </MultiSelectItem>
-                ))}
-                <MultiSelectEmpty>
-                  {categoryOptions.length
-                    ? 'Aucune catégorie trouvée.'
-                    : 'Aucune catégorie disponible.'}
-                </MultiSelectEmpty>
-              </MultiSelectList>
-            </MultiSelectContent>
-          </MultiSelect>
-        </fieldset>
-        {details.canCreateCategory && (
-          <Input
-            label="Nouvelle catégorie"
-            value={newCategory}
-            onChange={setNewCategory}
-            maxLength={60}
-            classNames={{
-              field:
-                'rounded-none border-2 border-black focus-within:ring-2 focus-within:ring-black',
-            }}
-          />
-        )}
+        <CategoryPicker
+          options={categoryOptions}
+          ids={categoryIds}
+          newName={newCategory}
+          canCreate={details.canCreateCategory}
+          disabled={saving}
+          onChange={(ids, name) => {
+            setCategoryIds(ids)
+            setNewCategory(name)
+          }}
+        />
         {error && (
           <p role="alert" className="font-bold text-red-700">
             {error}

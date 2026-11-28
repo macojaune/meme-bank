@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
 import { Button } from '~/components/motion/button/base'
 import VideoDetailsEditor, { type VideoDetails } from './video_details_editor'
+import { categoryTagClass } from './category_picker'
 
 type Person = VideoDetails['persons'][number]
 
@@ -310,10 +311,7 @@ function PeopleAndCategories({
         <div className="flex flex-wrap gap-2">
           {details.categories.length ? (
             details.categories.map((category) => (
-              <span
-                key={category.id}
-                className="border-2 border-black bg-yellow-300 px-3 py-1.5 text-sm font-bold"
-              >
+              <span key={category.id} className={categoryTagClass}>
                 {category.name}
               </span>
             ))
