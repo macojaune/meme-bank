@@ -92,6 +92,7 @@
     "drizzle-orm": "^1.0.0-beta.15-859cf75",
     "edge.js": "^6.2.1",
     "ioredis": "^5.9.2",
+    "lucide-react": "^1.77.0",
     "luxon": "^3.6.1",
     "memebank-upload": "workspace:*",
     "motion": "^14.14.0",
