@@ -32,6 +32,7 @@ async function saveError(response: Response) {
       title: 'Le titre doit faire au plus 255 caractères.',
       region: 'Choisis un territoire dans la liste.',
       categoryIds: 'Vérifie les catégories de la fiche.',
+      name: 'Le nom de la catégorie doit faire entre 2 et 60 caractères.',
       newCategory: 'Le nom de la catégorie doit faire entre 2 et 60 caractères.',
       personIds: 'Vérifie les personnes déjà associées.',
       newPeople: 'Le nom d’une personne doit faire entre 2 et 100 caractères.',
@@ -41,13 +42,39 @@ async function saveError(response: Response) {
   return 'Le serveur n’a pas pu enregistrer la fiche. Réessaie dans un instant.'
 }
 
+async function submitDetails(id: string, method: 'PATCH' | 'POST', data: object) {
+  const detailsUrl = `/api/v1/videos/${id}/details`
+  const endpoint = method === 'POST' ? detailsUrl + '/categories' : detailsUrl
+  const body = JSON.stringify(data)
+  const send = () => {
+    const csrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+    return fetch(endpoint, {
+      method,
+      credentials: 'same-origin',
+      redirect: 'error',
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+        'x-xsrf-token': csrf ? decodeURIComponent(csrf.slice('XSRF-TOKEN='.length)) : '',
+      },
+      body,
+    })
+  }
+  const response = await send()
+  if (response.status !== 419) return response
+  const refresh = await fetch(detailsUrl, { credentials: 'same-origin', redirect: 'error' })
+  return refresh.ok ? send() : refresh
+}
+
 export default function VideoDetailsEditor({
   details,
   onSave,
+  onCategoryAdded,
   onCancel,
 }: {
   details: VideoDetails
   onSave: (updated: VideoDetails) => void
+  onCategoryAdded: (category: Category) => void
   onCancel: () => void
 }) {
   const [title, setTitle] = useState(details.title)
@@ -57,12 +84,38 @@ export default function VideoDetailsEditor({
   const [newCategory, setNewCategory] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [categoryStatus, setCategoryStatus] = useState('')
   const categoryOptions = [
     ...details.categoryOptions,
     ...details.categories.filter(
       ({ id }) => !details.categoryOptions.some((option) => option.id === id)
     ),
   ]
+
+  async function addCategory(name: string) {
+    if (saving) return false
+    setSaving(true)
+    setError('')
+    setCategoryStatus('')
+    try {
+      const response = await submitDetails(details.id, 'POST', { name })
+      if (!response.ok) {
+        setError(await saveError(response))
+        return false
+      }
+      const category: Category = await response.json()
+      onCategoryAdded(category)
+      setCategoryIds((ids) => [...new Set([...ids, category.id])])
+      setNewCategory('')
+      setCategoryStatus(`Catégorie « ${category.name} » ajoutée.`)
+      return true
+    } catch {
+      setError('Impossible d’ajouter la catégorie. Réessaie.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -71,8 +124,7 @@ export default function VideoDetailsEditor({
     setError('')
 
     try {
-      const endpoint = `/api/v1/videos/${details.id}/details`
-      const payload = JSON.stringify({
+      const response = await submitDetails(details.id, 'PATCH', {
         title,
         region: region === (details.region ?? '') ? undefined : region || null,
         personIds: persons.filter(({ id }) => !id.startsWith('temp-')).map(({ id }) => id),
@@ -80,26 +132,6 @@ export default function VideoDetailsEditor({
         categoryIds,
         newCategory: newCategory || undefined,
       })
-      const send = () => {
-        const csrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='))
-        return fetch(endpoint, {
-          method: 'PATCH',
-          credentials: 'same-origin',
-          redirect: 'error',
-          headers: {
-            'content-type': 'application/json',
-            'accept': 'application/json',
-            'x-xsrf-token': csrf ? decodeURIComponent(csrf.slice('XSRF-TOKEN='.length)) : '',
-          },
-          body: payload,
-        })
-      }
-
-      let response = await send()
-      if (response.status === 419) {
-        const refresh = await fetch(endpoint, { credentials: 'same-origin', redirect: 'error' })
-        response = refresh.ok ? await send() : refresh
-      }
       if (!response.ok) {
         setError(await saveError(response))
         return
@@ -161,11 +193,17 @@ export default function VideoDetailsEditor({
           newName={newCategory}
           canCreate={details.canCreateCategory}
           disabled={saving}
+          onAdd={addCategory}
           onChange={(ids, name) => {
             setCategoryIds(ids)
             setNewCategory(name)
           }}
         />
+        {categoryStatus && (
+          <p role="status" className="text-sm font-bold">
+            {categoryStatus}
+          </p>
+        )}
         {error && (
           <p role="alert" className="font-bold text-red-700">
             {error}
