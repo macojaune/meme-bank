@@ -1,9 +1,23 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '~/components/motion/button/base'
 import { Input } from '~/components/motion/input'
+import {
+  MultiSelect,
+  MultiSelectContent,
+  MultiSelectEmpty,
+  MultiSelectInput,
+  MultiSelectItem,
+  MultiSelectList,
+  MultiSelectTrigger,
+  MultiSelectValue,
+} from '~/components/motion/multi-select'
 import PersonTagInput from './person_tag_input'
 
 type Category = { id: string; name: string }
+
+function normalizeCategorySearch(text: string) {
+  return text.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/\p{M}/gu, '')
+}
 
 export interface VideoDetails {
   id: string
@@ -26,7 +40,7 @@ export default function VideoDetailsEditor({
 }) {
   const [title, setTitle] = useState(details.title)
   const [persons, setPersons] = useState(details.persons)
-  const [categoryIds, setCategoryIds] = useState(details.categories.map(({ id }) => id))
+  const [categoryIds, setCategoryIds] = useState(() => details.categories.map(({ id }) => id))
   const [newCategory, setNewCategory] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -102,28 +116,43 @@ export default function VideoDetailsEditor({
             placeholder="Chercher ou ajouter une personne"
           />
         </div>
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="mb-2 text-sm font-black uppercase">Catégories</legend>
-          {categoryOptions.length ? (
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {categoryOptions.map(({ id, name }) => (
-                <label key={id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={categoryIds.includes(id)}
-                    onChange={({ target }) =>
-                      setCategoryIds((current) =>
-                        target.checked ? [...current, id] : current.filter((value) => value !== id)
-                      )
-                    }
-                  />
-                  {name}
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600">Aucune catégorie disponible.</p>
-          )}
+          <MultiSelect
+            value={categoryIds}
+            onValueChange={setCategoryIds}
+            disabled={saving}
+            filter={(_, query, [name = '']) =>
+              normalizeCategorySearch(name).includes(normalizeCategorySearch(query))
+            }
+            labels={{ removeValue: 'Retirer {label}' }}
+          >
+            <MultiSelectTrigger className="min-w-0 rounded-none border-2 border-black bg-white text-black focus-within:ring-black">
+              <MultiSelectValue
+                placeholder=""
+                chipClassName="rounded-none border border-black bg-yellow-300 font-bold text-black [&_button]:text-black"
+              />
+              <MultiSelectInput aria-label="Catégories" placeholder="Rechercher une catégorie" />
+            </MultiSelectTrigger>
+            <MultiSelectContent className="rounded-none border-2 border-black bg-white text-black shadow-[4px_4px_0px_black]">
+              <MultiSelectList ariaLabel="Catégories existantes" className="max-h-48">
+                {categoryOptions.map(({ id, name }) => (
+                  <MultiSelectItem
+                    key={id}
+                    value={id}
+                    className="rounded-none text-black data-[active]:bg-yellow-300 data-[selected]:font-bold"
+                  >
+                    {name}
+                  </MultiSelectItem>
+                ))}
+                <MultiSelectEmpty>
+                  {categoryOptions.length
+                    ? 'Aucune catégorie trouvée.'
+                    : 'Aucune catégorie disponible.'}
+                </MultiSelectEmpty>
+              </MultiSelectList>
+            </MultiSelectContent>
+          </MultiSelect>
         </fieldset>
         {details.canCreateCategory && (
           <Input
