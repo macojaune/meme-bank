@@ -225,4 +225,35 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
     assert.isTrue(ownedVideo.isPublished)
     assert.equal(ownedVideo.filePath, 'videos/fixture.mp4')
   })
+
+  test('adds a category independently and safely replays the request', async ({ assert }) => {
+    const before = await editor.request(path)
+    const baseline = (await before.json()) as {
+      title: string
+      region: string | null
+      persons: unknown[]
+    }
+    const categoryPath = path + '/categories'
+    const denied = await owner.request(categoryPath, 'POST', { name: 'Recette rapide' })
+    const invalidCsrf = await editor.request(
+      categoryPath,
+      'POST',
+      { name: 'Recette rapide' },
+      false
+    )
+    assert.equal(denied.status, 403)
+    assert.equal(invalidCsrf.status, 419)
+
+    const added = await editor.request(categoryPath, 'POST', { name: 'Recette rapide' })
+    assert.equal(added.status, 200, await added.clone().text())
+    const replay = await editor.request(categoryPath, 'POST', { name: 'Recette rapide' })
+    const category = await added.json()
+    assert.deepEqual(await replay.json(), category)
+    const after = await editor.request(path)
+    const saved = (await after.json()) as typeof baseline & { categories: unknown[] }
+    assert.equal(saved.title, baseline.title)
+    assert.equal(saved.region, baseline.region)
+    assert.deepEqual(saved.persons, baseline.persons)
+    assert.deepEqual(saved.categories, [category])
+  })
 })

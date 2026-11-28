@@ -442,6 +442,24 @@ function VideoModalContent({
                   <VideoDetailsEditor
                     details={details}
                     onCancel={() => setEditingDetails(false)}
+                    onCategoryAdded={(category) => {
+                      setDetails(
+                        (current) =>
+                          current && {
+                            ...current,
+                            categories: current.categories.some(({ id }) => id === category.id)
+                              ? current.categories
+                              : [...current.categories, category],
+                            categoryOptions: current.categoryOptions.some(
+                              ({ id }) => id === category.id
+                            )
+                              ? current.categoryOptions
+                              : [...current.categoryOptions, category].sort((a, b) =>
+                                  a.name.localeCompare(b.name, 'fr')
+                                ),
+                          }
+                      )
+                    }}
                     onSave={(updated) => {
                       setDetails(updated)
                       setEditingDetails(false)
