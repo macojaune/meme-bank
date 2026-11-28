@@ -202,6 +202,8 @@ Additional variables are used by config and jobs even though they are not valida
 - `BREVO_API_KEY`: server-only key for waitlist contact sync and welcome delivery
 - `BREVO_BETA_LIST_ID`: explicitly verified beta tester list ID in the account behind the API key
 - `BREVO_WELCOME_TEMPLATE_ID`: explicitly verified active welcome template ID in that same account
+- `BREVO_RESET_SENDER_EMAIL`: active sender in the Brevo account used for password reset emails
+- `PASSWORD_RESET_ORIGIN`: public HTTPS origin for password reset links, without a trailing slash
 
 There are no default destination IDs. Missing, non-positive or non-integer IDs disable signup
 with HTTP 503 before any provider call; non-numeric environment values fail startup validation.

@@ -85,13 +85,7 @@ router
     router.get('/register', '#controllers/auth_controller.showRegister')
     router.post('/register/invitation', '#controllers/auth_controller.acceptInvitation')
     router.on('/forgot-password').renderInertia('auth/forgot-password')
-    router.get('/reset-password', async ({ request, response }) => {
-      const token = request.qs().token
-      if (!token) {
-        return response.redirect('/forgot-password')
-      }
-      return response.redirect(`/auth/reset-password?token=${token}`)
-    })
+    router.get('/reset-password', '#controllers/auth_controller.showResetPassword')
   })
   .use(middleware.guest())
 
