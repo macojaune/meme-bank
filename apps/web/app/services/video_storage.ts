@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { open, readFile } from 'node:fs/promises'
 import app from '@adonisjs/core/services/app'
 import drive from '@adonisjs/drive/services/main'
 import env from '#start/env'
@@ -36,18 +36,36 @@ function objectKey(path: string, agentImport: boolean) {
   throw new Error('Unknown video storage endpoint')
 }
 
-export async function videoAssetBytes(path: string, agentImport: boolean) {
-  const key = objectKey(path, agentImport)
-  // The bundled fixtures have UUID filenames. Keep reads inside that directory.
+// The bundled fixtures have UUID filenames. Keep reads inside that directory.
+function bundledPath(key: string, agentImport: boolean) {
   const bundled = key.match(
     /^(?:seed\/memes\/)?((?:videos|thumbnails)\/[a-f\d-]{36}\.(?:mp4|jpg))$/i
   )
-  if (!agentImport && bundled) {
+  return !agentImport && bundled ? app.makePath('resources/seed/memes', bundled[1]) : null
+}
+
+export async function videoAssetBytes(path: string, agentImport: boolean) {
+  const key = objectKey(path, agentImport)
+  const bundled = bundledPath(key, agentImport)
+  if (bundled) {
     try {
-      return await readFile(app.makePath('resources/seed/memes', bundled[1]))
+      return await readFile(bundled)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
   }
   return videoDisk(agentImport).getBytes(key)
+}
+
+export async function videoAssetStream(path: string, agentImport: boolean) {
+  const key = objectKey(path, agentImport)
+  const bundled = bundledPath(key, agentImport)
+  if (bundled) {
+    try {
+      return (await open(bundled, 'r')).createReadStream()
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  return videoDisk(agentImport).getStream(key)
 }

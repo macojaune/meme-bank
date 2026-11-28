@@ -29,6 +29,9 @@ export default class Video extends BaseModel {
   @column()
   declare userId: string
 
+  @column({ serializeAs: null })
+  declare remixedFromVideoId: string | null
+
   @beforeCreate()
   static assignUuid(video: Video) {
     video.id = uuidv4()

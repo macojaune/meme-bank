@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Scissors, X } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Button } from '~/components/motion/button/base'
 import { MorphingModal } from '~/components/motion/morphing-modal'
 import VideoDetailsEditor, { type VideoDetails } from './video_details_editor'
+import VideoRemixEditor from './video_remix_editor'
 import { categoryTagClass } from './category_picker'
 
 type Person = VideoDetails['persons'][number]
@@ -18,9 +19,15 @@ interface Video {
   viewCount: number
   likeCount: number
   isPublished: boolean
+  skipAutoTranscription?: boolean
   region: string | null
   createdAt: string
   userId: string
+}
+
+type VideoDetailsResponse = VideoDetails & {
+  video: Video
+  source: { id: string; title: string } | null
 }
 
 interface VideoModalProps {
@@ -32,6 +39,7 @@ interface VideoModalProps {
   onDelete: (videoId: string) => void
   onPersonClick?: (person: Person) => void
   onDetailsChange?: (details: VideoDetails) => void
+  onRemixOpen?: () => void
 }
 
 const REGIONS: Record<string, { name: string; flag: string }> = {
@@ -114,7 +122,13 @@ interface Transcription {
   pointsAwarded: number
 }
 
-function TranscriptionSection({ videoId }: { videoId: string }) {
+function TranscriptionSection({
+  videoId,
+  skipAutoTranscription,
+}: {
+  videoId: string
+  skipAutoTranscription?: boolean
+}) {
   const [transcription, setTranscription] = useState<Transcription | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
@@ -176,7 +190,9 @@ function TranscriptionSection({ videoId }: { videoId: string }) {
   if (!transcription) {
     return (
       <div className="bg-yellow-50 border-4 border-black p-4">
-        <p className="font-bold uppercase text-sm">Transcription en cours...</p>
+        <p className="font-bold uppercase text-sm">
+          {skipAutoTranscription ? 'Aucune transcription' : 'Transcription en cours...'}
+        </p>
       </div>
     )
   }
@@ -325,9 +341,71 @@ export default function VideoModal({
   ...props
 }: VideoModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
-  const index = video ? videoIds.indexOf(video.id) : -1
+  const lookup = useRef<AbortController | null>(null)
+  const [linkedDetails, setLinkedDetails] = useState<{
+    anchorId: string
+    details: VideoDetailsResponse
+  } | null>(null)
+  const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState('')
+  const related = linkedDetails?.anchorId === video?.id ? linkedDetails?.details : undefined
+  const currentVideo = related?.video ?? video
+  const index = currentVideo ? videoIds.indexOf(currentVideo.id) : -1
   const previous = index > 0 ? videoIds[index - 1] : undefined
   const next = index >= 0 ? videoIds[index + 1] : undefined
+
+  useEffect(() => () => lookup.current?.abort(), [])
+
+  function resetRelatedVideo() {
+    lookup.current?.abort()
+    lookup.current = null
+    setLinkedDetails(null)
+    setOpening(false)
+    setOpenError('')
+  }
+
+  function closeVideo() {
+    resetRelatedVideo()
+    onClose()
+  }
+
+  function goToVideo(id: string) {
+    resetRelatedVideo()
+    closeRef.current?.focus()
+    onNavigate(id)
+  }
+
+  async function openRelatedVideo(id: string, kind: 'source' | 'draft') {
+    if (!video || lookup.current) return
+    const controller = new AbortController()
+    lookup.current = controller
+    setOpening(true)
+    setOpenError('')
+    try {
+      const response = await fetch(`/api/v1/videos/${id}/details`, {
+        headers: { Accept: 'application/json' },
+        redirect: 'error',
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        if (!controller.signal.aborted) setOpenError('Cette vidéo est devenue indisponible.')
+        return
+      }
+      const details: VideoDetailsResponse = await response.json()
+      if (controller.signal.aborted) return
+
+      setLinkedDetails({ anchorId: video.id, details })
+      closeRef.current?.focus()
+      if (kind === 'draft') props.onRemixOpen?.()
+    } catch {
+      if (!controller.signal.aborted) setOpenError('Impossible d’ouvrir cette vidéo.')
+    } finally {
+      if (!controller.signal.aborted) {
+        lookup.current = null
+        setOpening(false)
+      }
+    }
+  }
 
   function navigateWithArrow(event: KeyboardEvent<HTMLDivElement>) {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
@@ -345,14 +423,13 @@ export default function VideoModal({
     if (!target) return
 
     event.preventDefault()
-    closeRef.current?.focus()
-    onNavigate(target)
+    goToVideo(target)
   }
 
   return (
     <MorphingModal
-      viewId={video ? 'video' : null}
-      onClose={onClose}
+      viewId={currentVideo ? 'video' : null}
+      onClose={closeVideo}
       placement="center"
       ariaLabel="Fiche vidéo"
       labels={{ close: 'Fermer via l’arrière-plan' }}
@@ -360,13 +437,13 @@ export default function VideoModal({
       contentClassName="p-0"
       backdropClassName="bg-black/75"
     >
-      {video && (
+      {currentVideo && (
         <div
           className="flex h-[min(52rem,calc(100dvh-2.5rem))] flex-col"
           onKeyDown={navigateWithArrow}
         >
           <span className="sr-only" role="status">
-            {video.title || 'Sans titre'}
+            {currentVideo.title || 'Sans titre'}
           </span>
           <div className="flex shrink-0 items-center justify-between gap-2 border-b-4 border-black bg-white p-2">
             <nav aria-label="Navigation entre les vidéos" className="flex min-w-0 gap-2">
@@ -375,7 +452,7 @@ export default function VideoModal({
                 aria-label="Vidéo précédente"
                 aria-keyshortcuts="ArrowLeft"
                 aria-disabled={!previous}
-                onClick={() => previous && onNavigate(previous)}
+                onClick={() => previous && goToVideo(previous)}
                 className={navigationButtonClass}
               >
                 <ChevronLeft aria-hidden="true" className="size-5" />
@@ -386,26 +463,53 @@ export default function VideoModal({
                 aria-label="Vidéo suivante"
                 aria-keyshortcuts="ArrowRight"
                 aria-disabled={!next}
-                onClick={() => next && onNavigate(next)}
+                onClick={() => next && goToVideo(next)}
                 className={navigationButtonClass}
               >
                 <span className="hidden sm:inline">Suivante</span>
                 <ChevronRight aria-hidden="true" className="size-5" />
               </Button>
+              {related && related.video.id !== video?.id && (
+                <Button
+                  type="button"
+                  aria-label="Revenir à la fiche de départ"
+                  onClick={() => {
+                    resetRelatedVideo()
+                    closeRef.current?.focus()
+                  }}
+                  className={navigationButtonClass}
+                >
+                  <ArrowLeft aria-hidden="true" className="size-5" />
+                  <span className="hidden md:inline">Revenir à la fiche de départ</span>
+                </Button>
+              )}
             </nav>
             <Button
               ref={closeRef}
               type="button"
               aria-label="Fermer la fiche"
               aria-keyshortcuts="Escape"
-              onClick={onClose}
+              onClick={closeVideo}
               className="h-9 shrink-0 gap-1 rounded-none border-2 border-black bg-red-500 px-2 font-black text-black hover:bg-red-400"
             >
               <X aria-hidden="true" className="size-5" />
               <span className="hidden sm:inline">Fermer</span>
             </Button>
           </div>
-          <VideoModalContent key={video.id} video={video} onClose={onClose} {...props} />
+          {openError && (
+            <p role="alert" className="border-b-2 border-black px-3 py-2 text-red-700">
+              {openError}
+            </p>
+          )}
+          <VideoModalContent
+            key={currentVideo.id}
+            {...props}
+            video={currentVideo}
+            initialDetails={related}
+            openingVideo={opening}
+            onOpenVideo={(id, kind) => void openRelatedVideo(id, kind)}
+            onClose={closeVideo}
+          />
         </div>
       )}
     </MorphingModal>
@@ -419,12 +523,29 @@ function VideoModalContent({
   onDelete,
   onPersonClick,
   onDetailsChange,
-}: Omit<VideoModalProps, 'video' | 'videoIds' | 'onNavigate'> & { video: Video }) {
-  const [details, setDetails] = useState<VideoDetails | null>(null)
+  initialDetails,
+  openingVideo,
+  onOpenVideo,
+}: Omit<VideoModalProps, 'video' | 'videoIds' | 'onNavigate'> & {
+  video: Video
+  initialDetails?: VideoDetailsResponse
+  openingVideo: boolean
+  onOpenVideo: (id: string, kind: 'source' | 'draft') => void
+}) {
+  const [details, setDetails] = useState<VideoDetailsResponse | null>(initialDetails ?? null)
   const [detailsError, setDetailsError] = useState(false)
   const [editingDetails, setEditingDetails] = useState(false)
+  const [editingRemix, setEditingRemix] = useState(false)
+  const player = useRef<HTMLVideoElement>(null)
+  const remixButton = useRef<HTMLButtonElement>(null)
+
+  function closeRemixEditor() {
+    setEditingRemix(false)
+    requestAnimationFrame(() => remixButton.current?.focus())
+  }
 
   useEffect(() => {
+    if (initialDetails) return
     const controller = new AbortController()
     async function load() {
       try {
@@ -432,7 +553,7 @@ function VideoModalContent({
           signal: controller.signal,
         })
         if (!response.ok) throw new Error('Details unavailable')
-        const data: VideoDetails = await response.json()
+        const data: VideoDetailsResponse = await response.json()
         if (!controller.signal.aborted) setDetails(data)
       } catch {
         if (!controller.signal.aborted) setDetailsError(true)
@@ -440,7 +561,7 @@ function VideoModalContent({
     }
     void load()
     return () => controller.abort()
-  }, [video.id])
+  }, [initialDetails, video.id])
 
   const isOwner = video.userId === userId
   const region = getRegionDisplay(details ? details.region : video.region)
@@ -473,8 +594,15 @@ function VideoModalContent({
     <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-1">
       <div className="min-h-0 min-w-0 border-b-4 border-black bg-black lg:border-r-4 lg:border-b-0">
         <video
-          src={getVideoUrl(video.id)}
+          ref={player}
+          src={
+            editingRemix || initialDetails
+              ? `/api/v1/videos/${video.id}/media`
+              : getVideoUrl(video.id)
+          }
           controls
+          preload={editingRemix ? 'metadata' : undefined}
+          playsInline
           tabIndex={0}
           className="block h-full w-full object-contain"
         />
@@ -502,7 +630,28 @@ function VideoModalContent({
 
           {/* Scrollable Content */}
           <div className="space-y-4 p-4">
-            {details?.canEdit && !editingDetails && (
+            {details?.source && (
+              <Button
+                type="button"
+                disabled={openingVideo}
+                title={details.source.title || 'Sans titre'}
+                onClick={() => details.source && onOpenVideo(details.source.id, 'source')}
+                className="h-auto rounded-none border-2 border-black bg-white px-3 py-1.5 text-left text-sm font-bold text-black hover:bg-yellow-300"
+              >
+                Voir le mème d’origine
+              </Button>
+            )}
+            {editingRemix && (
+              <VideoRemixEditor
+                videoId={video.id}
+                title={details?.title ?? video.title}
+                player={player}
+                opening={openingVideo}
+                onOpenVideo={(id) => onOpenVideo(id, 'draft')}
+                onClose={closeRemixEditor}
+              />
+            )}
+            {details?.canEdit && !editingDetails && !editingRemix && (
               <Button
                 type="button"
                 onClick={() => setEditingDetails(true)}
@@ -529,7 +678,12 @@ function VideoModalContent({
                 />
               ))}
             {detailsError && <p role="status">Impossible de charger la fiche.</p>}
-            <TranscriptionSection videoId={video.id} />
+            <TranscriptionSection
+              videoId={video.id}
+              skipAutoTranscription={
+                details?.video?.skipAutoTranscription ?? video.skipAutoTranscription
+              }
+            />
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t-4 border-black bg-gray-50 p-2 sm:p-3">
@@ -541,6 +695,18 @@ function VideoModalContent({
             <DownloadIcon />
             Télécharger
           </Button>
+
+          {(isOwner || video.isPublished) && !editingRemix && !editingDetails && (
+            <Button
+              ref={remixButton}
+              type="button"
+              onClick={() => setEditingRemix(true)}
+              className="h-auto gap-2 rounded-none border-2 border-black bg-yellow-300 px-3 py-1.5 font-black text-black hover:bg-yellow-400"
+            >
+              <Scissors aria-hidden="true" className="size-4" />
+              Créer un extrait
+            </Button>
+          )}
 
           {isOwner && (
             <Button

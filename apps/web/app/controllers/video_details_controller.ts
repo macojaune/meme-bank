@@ -9,6 +9,7 @@ import Video from '#models/video'
 import env from '#start/env'
 import { VIDEO_TERRITORY_IDS } from '../../shared/video_territories.js'
 import { canViewVideo } from '#services/video_access'
+import { videoAssetUrl } from '#utils/url_helper'
 
 const detailsValidator = vine.compile(
   vine.object({
@@ -38,7 +39,28 @@ async function details(video: Video, userId: string) {
         .orderBy('name')
     : []
 
+  const original = video.remixedFromVideoId ? await Video.find(video.remixedFromVideoId) : null
+
   return {
+    video: {
+      id: video.id,
+      userId: video.userId,
+      title: video.title,
+      description: video.description,
+      filePath: videoAssetUrl(video, 'media'),
+      thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+      durationSeconds: video.durationSeconds,
+      viewCount: video.viewCount ?? 0,
+      likeCount: video.likeCount ?? 0,
+      isPublished: video.isPublished,
+      skipAutoTranscription: video.skipAutoTranscription,
+      region: video.region,
+      createdAt: video.createdAt.toISO(),
+    },
+    source:
+      original && canViewVideo(original, userId)
+        ? { id: original.id, title: original.title }
+        : null,
     id: video.id,
     title: video.title,
     region: video.region,
