@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react'
 import { useState } from 'react'
-import VideoUploadForm from '../components/video_upload_form.js'
+import VideoUploadForm, { type UploadData } from '../components/video_upload_form.js'
 import Navigation from '../components/navigation'
 
 interface UploadProps {
@@ -14,17 +14,17 @@ interface UploadProps {
 export default function Upload({ auth }: UploadProps) {
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const handleUpload = (formData: FormData) => {
+  const handleUpload = (upload: UploadData) => {
     setIsProcessing(true)
 
     // Use Inertia's router.post instead of fetch to avoid 302 issues
-    router.post('/videos/upload', formData, {
+    router.post('/videos/upload', upload, {
       onSuccess: () => {
         // Inertia handles the redirect automatically
       },
       onError: (errors) => {
         console.error('Upload error:', errors)
-        alert("Erreur lors de l'upload")
+        alert("Impossible d’envoyer la vidéo")
         setIsProcessing(false)
       },
       onFinish: () => {
@@ -35,7 +35,7 @@ export default function Upload({ auth }: UploadProps) {
 
   return (
     <>
-      <Head title="Upload Video" />
+      <Head title="Ajouter un mème" />
       <div className="min-h-screen bg-bg">
         <Navigation user={{ fullName: auth.user.fullName }} isLoggedIn={true} />
 

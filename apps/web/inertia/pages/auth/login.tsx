@@ -1,3 +1,5 @@
+import { Button } from '~/components/motion/button/base'
+import { Input } from '~/components/motion/input'
 import { Head, Link, useForm } from '@inertiajs/react'
 import { useState, useEffect } from 'react'
 
@@ -67,7 +69,7 @@ export default function Login() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form action="/login" method="post" onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label
                     htmlFor="email"
@@ -75,15 +77,19 @@ export default function Login() {
                   >
                     Email
                   </label>
-                  <input
+                  <Input
                     id="email"
                     name="email"
                     type="email"
                     autoComplete="email"
                     required
                     value={data.email}
-                    onChange={(e) => setData('email', e.target.value)}
-                    className="w-full px-4 py-3 border-4 border-black font-bold"
+                    onChange={(value) => setData('email', value)}
+                    classNames={{
+                      field:
+                        'h-auto rounded-none border-4 border-black focus-within:ring-2 focus-within:ring-black',
+                      input: 'px-4 py-3 font-bold text-black',
+                    }}
                     placeholder="ton@email.com"
                   />
                   {errors.email && (
@@ -98,15 +104,19 @@ export default function Login() {
                   >
                     Mot de passe
                   </label>
-                  <input
+                  <Input
                     id="password"
                     name="password"
                     type="password"
                     autoComplete="current-password"
                     required
                     value={data.password}
-                    onChange={(e) => setData('password', e.target.value)}
-                    className="w-full px-4 py-3 border-4 border-black font-bold"
+                    onChange={(value) => setData('password', value)}
+                    classNames={{
+                      field:
+                        'h-auto rounded-none border-4 border-black focus-within:ring-2 focus-within:ring-black',
+                      input: 'px-4 py-3 font-bold text-black',
+                    }}
                     placeholder="Ton mot de passe"
                   />
                   {errors.password && (
@@ -136,13 +146,13 @@ export default function Login() {
                 </div>
 
                 <div className="pt-2">
-                  <button
+                  <Button
                     type="submit"
                     disabled={processing}
-                    className="w-full bg-yellow-400 border-4 border-black px-6 py-4 font-black uppercase text-lg shadow-neo hover:shadow-neo-lg hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="h-auto w-full rounded-none text-black hover:bg-yellow-400 bg-yellow-400 border-4 border-black px-6 py-4 font-black uppercase text-lg shadow-neo hover:shadow-neo-lg hover:translate-x-[-2px] hover:translate-y-[-2px] transition-[translate,box-shadow,background-color,opacity] disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {processing ? 'Connexion...' : 'SE CONNECTER'}
-                  </button>
+                  </Button>
                 </div>
               </form>
 

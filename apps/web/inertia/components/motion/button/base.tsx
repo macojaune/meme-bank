@@ -1,0 +1,212 @@
+"use client";
+// beui.dev/components/motion/button/base
+
+import {
+  AnimatePresence,
+  type HTMLMotionProps,
+  motion,
+  useReducedMotion,
+} from "motion/react";
+import {
+  forwardRef,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
+import { EASE_OUT, SPRING_PRESS } from "~/lib/ease";
+import { useSound } from "~/lib/sound";
+import { pressSound } from "~/lib/sounds/press";
+import { cn } from "~/lib/utils";
+
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "outline";
+export type ButtonSize = "sm" | "md" | "lg" | "icon";
+
+export interface ButtonProps extends Omit<
+  HTMLMotionProps<"button">,
+  "children"
+> {
+  /** Visual style: filled, card, ghost or outline. Default: "primary" */
+  variant?: ButtonVariant;
+  /** Height and padding; "icon" is a square icon-only button. Default: "md" */
+  size?: ButtonSize;
+  /** Scale while pressed. Default 0.97: subtle, so the press reads as feedback, not a squash. */
+  pressScale?: number;
+  /** Spawn a Material-style ripple from the press point. Off by default. */
+  ripple?: boolean;
+  /** Play a soft press sound. Off by default; a `SoundProvider` can mute it app-wide. */
+  sound?: boolean;
+  children?: ReactNode;
+}
+
+export interface ButtonLinkProps extends Omit<
+  HTMLMotionProps<"a">,
+  "children"
+> {
+  /** Visual style: filled, card, ghost or outline. Default: "primary" */
+  variant?: ButtonVariant;
+  /** Height and padding; "icon" is a square icon-only link. Default: "md" */
+  size?: ButtonSize;
+  /** Scale while pressed. Default 0.97. */
+  pressScale?: number;
+  children?: ReactNode;
+}
+
+type Ripple = { id: number; x: number; y: number; size: number };
+
+const VARIANT_CLASS: Record<ButtonVariant, string> = {
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+  secondary: "border border-border bg-card text-foreground hover:border-border",
+  ghost: "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+  outline:
+    "border border-border bg-transparent text-foreground hover:bg-muted/60",
+};
+
+const SIZE_CLASS: Record<ButtonSize, string> = {
+  sm: "h-8 px-3 text-xs gap-1.5 rounded-full",
+  md: "h-10 px-5 text-sm gap-2 rounded-full",
+  lg: "h-12 px-6 text-base gap-2 rounded-full",
+  icon: "h-8 w-8 rounded-full",
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    {
+      variant = "primary",
+      size = "md",
+      pressScale = 0.97,
+      ripple = false,
+      sound = false,
+      className,
+      children,
+      onPointerDown,
+      onClick,
+      ...rest
+    },
+    ref,
+  ) {
+    const reduce = useReducedMotion();
+    const [ripples, setRipples] = useState<Ripple[]>([]);
+    const nextId = useRef(0);
+    const play = useSound(pressSound, { enabled: sound });
+
+    const handleClick = useCallback(
+      (event: MouseEvent<HTMLButtonElement>) => {
+        // `detail` is 0 for a click the keyboard made; a pointer press already sounded.
+        if (event.detail === 0) play();
+        onClick?.(event);
+      },
+      [play, onClick],
+    );
+
+    const handlePointerDown = useCallback(
+      (event: PointerEvent<HTMLButtonElement>) => {
+        play();
+        if (ripple && !reduce) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height) * 2;
+          const id = nextId.current++;
+          setRipples((prev) => [
+            ...prev,
+            {
+              id,
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top,
+              size,
+            },
+          ]);
+        }
+        onPointerDown?.(event);
+      },
+      [ripple, reduce, onPointerDown, play],
+    );
+
+    return (
+      // Hover changes colour only: a hover scale blurs the label, and buttons
+      // are hovered far too often for movement to earn its place.
+      <motion.button
+        ref={ref}
+        type="button"
+        whileTap={reduce ? undefined : { scale: pressScale }}
+        transition={SPRING_PRESS}
+        onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        className={cn(
+          "inline-flex items-center justify-center font-medium select-none",
+          "transition-colors",
+          "disabled:pointer-events-none disabled:opacity-50",
+          ripple && "relative overflow-hidden",
+          VARIANT_CLASS[variant],
+          SIZE_CLASS[size],
+          className,
+        )}
+        {...rest}
+      >
+        {ripple && !reduce ? (
+          <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+            <AnimatePresence>
+              {ripples.map((r) => (
+                <motion.span
+                  key={r.id}
+                  className="absolute rounded-full bg-current"
+                  style={{
+                    left: r.x,
+                    top: r.y,
+                    width: r.size,
+                    height: r.size,
+                    x: "-50%",
+                    y: "-50%",
+                  }}
+                  initial={{ scale: 0.05, opacity: 0.3 }}
+                  animate={{ scale: 1, opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8, ease: EASE_OUT }}
+                  onAnimationComplete={() =>
+                    setRipples((prev) => prev.filter((x) => x.id !== r.id))
+                  }
+                />
+              ))}
+            </AnimatePresence>
+          </span>
+        ) : null}
+        {children}
+      </motion.button>
+    );
+  },
+);
+
+export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(
+  function ButtonLink(
+    {
+      variant = "primary",
+      size = "md",
+      pressScale = 0.97,
+      className,
+      children,
+      ...rest
+    },
+    ref,
+  ) {
+    const reduce = useReducedMotion();
+
+    return (
+      <motion.a
+        ref={ref}
+        whileTap={reduce ? undefined : { scale: pressScale }}
+        transition={SPRING_PRESS}
+        className={cn(
+          "inline-flex items-center justify-center font-medium select-none",
+          "transition-colors",
+          VARIANT_CLASS[variant],
+          SIZE_CLASS[size],
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+      </motion.a>
+    );
+  },
+);
