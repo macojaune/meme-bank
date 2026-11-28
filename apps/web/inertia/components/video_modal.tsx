@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import { Button } from '~/components/motion/button/base'
+import { MorphingModal } from '~/components/motion/morphing-modal'
 import VideoDetailsEditor, { type VideoDetails } from './video_details_editor'
 import { categoryTagClass } from './category_picker'
 
@@ -23,6 +25,8 @@ interface Video {
 
 interface VideoModalProps {
   video: Video | null
+  videoIds: readonly string[]
+  onNavigate: (videoId: string) => void
   userId: string
   onClose: () => void
   onDelete: (videoId: string) => void
@@ -37,20 +41,6 @@ const REGIONS: Record<string, { name: string; flag: string }> = {
   reunion: { name: 'La Reunion', flag: '🇷🇪' },
   mayotte: { name: 'Mayotte', flag: '🇾🇹' },
 }
-
-const CloseIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="4"
-    strokeLinecap="round"
-  >
-    <path d="M18 6L6 18M6 6l12 12" />
-  </svg>
-)
 
 const DownloadIcon = () => (
   <svg
@@ -223,26 +213,26 @@ function TranscriptionSection({ videoId }: { videoId: string }) {
             placeholder="Raison de la correction (optionnel)"
           />
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
               onClick={submitCorrection}
               disabled={!hasChanges()}
-              className="flex-1 bg-green-400 border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="h-auto flex-1 rounded-none bg-green-400 text-black hover:bg-green-300 border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <CheckIcon />
               SOUMETTRE (+10 PTS)
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => {
                 setIsEditing(false)
                 setEditedText(originalText)
                 setCorrectionReason('')
               }}
-              className="bg-gray-300 border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+              className="h-auto rounded-none border-4 bg-gray-300 text-black hover:bg-gray-200 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
             >
               ANNULER
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -250,18 +240,18 @@ function TranscriptionSection({ videoId }: { videoId: string }) {
           <p className="whitespace-pre-wrap font-medium text-lg leading-relaxed mb-4">
             {transcription.text}
           </p>
-          <div className="flex justify-between items-center pt-3 border-t-2 border-black">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-black pt-3">
             <span className="text-xs font-bold text-gray-500 uppercase">
               Revision #{transcription.revisionNumber}
             </span>
-            <button
+            <Button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="bg-magenta border-4 border-black px-4 py-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center gap-2 text-white"
+              className="h-auto rounded-none border-4 bg-magenta hover:bg-magenta border-black px-4 py-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center gap-2 text-white"
             >
               <EditIcon />
               CORRIGER (+10 PTS)
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -284,14 +274,14 @@ function PeopleAndCategories({
           {details.persons.length ? (
             details.persons.map((person) =>
               onPersonClick ? (
-                <button
+                <Button
                   key={person.id}
                   type="button"
                   onClick={() => onPersonClick(person)}
-                  className="border-2 border-black bg-cyan px-3 py-1.5 text-sm font-bold hover:bg-black hover:text-white"
+                  className="h-auto rounded-none border-2 border-black bg-cyan px-3 py-1.5 text-sm font-bold text-black hover:bg-black hover:text-white"
                 >
                   {person.name}
-                </button>
+                </Button>
               ) : (
                 <span
                   key={person.id}
@@ -324,8 +314,102 @@ function PeopleAndCategories({
   )
 }
 
-export default function VideoModal({ video, ...props }: VideoModalProps) {
-  return video ? <VideoModalContent key={video.id} video={video} {...props} /> : null
+const navigationButtonClass =
+  'h-9 gap-1 rounded-none border-2 border-black bg-white px-2 font-black text-black hover:bg-yellow-300 aria-disabled:opacity-40'
+
+export default function VideoModal({
+  video,
+  videoIds,
+  onNavigate,
+  onClose,
+  ...props
+}: VideoModalProps) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const index = video ? videoIds.indexOf(video.id) : -1
+  const previous = index > 0 ? videoIds[index - 1] : undefined
+  const next = index >= 0 ? videoIds[index + 1] : undefined
+
+  function navigateWithArrow(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      return
+    if (!(event.target instanceof Element)) return
+    if (
+      event.target.closest(
+        'form, input, textarea, select, video, [contenteditable], [role="combobox"]'
+      )
+    )
+      return
+
+    const target =
+      event.key === 'ArrowLeft' ? previous : event.key === 'ArrowRight' ? next : undefined
+    if (!target) return
+
+    event.preventDefault()
+    closeRef.current?.focus()
+    onNavigate(target)
+  }
+
+  return (
+    <MorphingModal
+      viewId={video ? 'video' : null}
+      onClose={onClose}
+      placement="center"
+      ariaLabel="Fiche vidéo"
+      labels={{ close: 'Fermer via l’arrière-plan' }}
+      className="max-w-6xl rounded-none border-4 border-black bg-white text-black shadow-[8px_8px_0_black]"
+      contentClassName="p-0"
+      backdropClassName="bg-black/75"
+    >
+      {video && (
+        <div
+          className="flex h-[min(52rem,calc(100dvh-2.5rem))] flex-col"
+          onKeyDown={navigateWithArrow}
+        >
+          <span className="sr-only" role="status">
+            {video.title || 'Sans titre'}
+          </span>
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b-4 border-black bg-white p-2">
+            <nav aria-label="Navigation entre les vidéos" className="flex min-w-0 gap-2">
+              <Button
+                type="button"
+                aria-label="Vidéo précédente"
+                aria-keyshortcuts="ArrowLeft"
+                aria-disabled={!previous}
+                onClick={() => previous && onNavigate(previous)}
+                className={navigationButtonClass}
+              >
+                <ChevronLeft aria-hidden="true" className="size-5" />
+                <span className="hidden sm:inline">Précédente</span>
+              </Button>
+              <Button
+                type="button"
+                aria-label="Vidéo suivante"
+                aria-keyshortcuts="ArrowRight"
+                aria-disabled={!next}
+                onClick={() => next && onNavigate(next)}
+                className={navigationButtonClass}
+              >
+                <span className="hidden sm:inline">Suivante</span>
+                <ChevronRight aria-hidden="true" className="size-5" />
+              </Button>
+            </nav>
+            <Button
+              ref={closeRef}
+              type="button"
+              aria-label="Fermer la fiche"
+              aria-keyshortcuts="Escape"
+              onClick={onClose}
+              className="h-9 shrink-0 gap-1 rounded-none border-2 border-black bg-red-500 px-2 font-black text-black hover:bg-red-400"
+            >
+              <X aria-hidden="true" className="size-5" />
+              <span className="hidden sm:inline">Fermer</span>
+            </Button>
+          </div>
+          <VideoModalContent key={video.id} video={video} onClose={onClose} {...props} />
+        </div>
+      )}
+    </MorphingModal>
+  )
 }
 
 function VideoModalContent({
@@ -335,7 +419,7 @@ function VideoModalContent({
   onDelete,
   onPersonClick,
   onDetailsChange,
-}: Omit<VideoModalProps, 'video'> & { video: Video }) {
+}: Omit<VideoModalProps, 'video' | 'videoIds' | 'onNavigate'> & { video: Video }) {
   const [details, setDetails] = useState<VideoDetails | null>(null)
   const [detailsError, setDetailsError] = useState(false)
   const [editingDetails, setEditingDetails] = useState(false)
@@ -386,104 +470,92 @@ function VideoModalContent({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-2 right-2 bg-red-500 border-4 border-black w-10 h-10 flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all z-10"
+    <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-1">
+      <div className="min-h-0 min-w-0 border-b-4 border-black bg-black lg:border-r-4 lg:border-b-0">
+        <video
+          src={getVideoUrl(video.id)}
+          controls
+          tabIndex={0}
+          className="block h-full w-full object-contain"
+        />
+      </div>
+
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div
+          data-video-details-scroll
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         >
-          <CloseIcon />
-        </button>
+          <div className="border-b-4 border-black bg-white p-4">
+            <h2 className="mb-3 break-words text-xl leading-tight font-black uppercase md:text-2xl">
+              {(details?.title ?? video.title) || 'Sans titre'}
+            </h2>
 
-        {/* Layout: Video Left, Content Right */}
-        <div className="flex flex-col lg:flex-row">
-          {/* LEFT - Video */}
-          <div className="lg:w-3/5 bg-black flex items-center justify-center border-b-4 lg:border-b-0 lg:border-r-4 border-black">
-            <video
-              src={getVideoUrl(video.id)}
-              controls
-              className="w-full h-auto max-h-[50vh] lg:max-h-[none] object-contain"
-            />
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 bg-black text-white font-bold text-sm uppercase whitespace-nowrap">
+                {region.flag} {region.name}
+              </span>
+              <span className="px-3 py-1 bg-gray-200 border-2 border-black font-bold text-sm uppercase whitespace-nowrap">
+                {formatDate(video.createdAt)}
+              </span>
+            </div>
           </div>
 
-          {/* RIGHT - Content */}
-          <div className="lg:w-2/5 flex flex-col">
-            {/* Header: Title + Tags */}
-            <div className="p-4 border-b-4 border-black bg-white">
-              <h2 className="text-xl md:text-2xl font-black uppercase mb-3 leading-tight break-words">
-                {(details?.title ?? video.title) || 'Sans titre'}
-              </h2>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-black text-white font-bold text-sm uppercase whitespace-nowrap">
-                  {region.flag} {region.name}
-                </span>
-                <span className="px-3 py-1 bg-gray-200 border-2 border-black font-bold text-sm uppercase whitespace-nowrap">
-                  {formatDate(video.createdAt)}
-                </span>
-              </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="p-4 space-y-4 overflow-y-auto flex-1">
-              {details?.canEdit && !editingDetails && (
-                <Button
-                  type="button"
-                  onClick={() => setEditingDetails(true)}
-                  className="h-auto rounded-none border-2 border-black bg-yellow-400 px-4 py-2 font-black text-black hover:bg-yellow-300"
-                >
-                  Modifier la fiche
-                </Button>
-              )}
-              {details &&
-                (editingDetails ? (
-                  <VideoDetailsEditor
-                    details={details}
-                    onCancel={() => setEditingDetails(false)}
-                    onSave={(updated) => {
-                      setDetails(updated)
-                      setEditingDetails(false)
-                      onDetailsChange?.(updated)
-                    }}
-                  />
-                ) : (
-                  <PeopleAndCategories
-                    details={details}
-                    onPersonClick={onPersonClick ? handlePersonClick : undefined}
-                  />
-                ))}
-              {detailsError && <p role="status">Impossible de charger la fiche.</p>}
-              <TranscriptionSection videoId={video.id} />
-            </div>
-
-            {/* Actions Footer */}
-            <div className="p-4 border-t-4 border-black bg-gray-50 flex flex-col gap-2">
-              <button
+          {/* Scrollable Content */}
+          <div className="space-y-4 p-4">
+            {details?.canEdit && !editingDetails && (
+              <Button
                 type="button"
-                onClick={() => handleDownload(video.id)}
-                className="w-full bg-white border-4 border-black px-4 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2"
+                onClick={() => setEditingDetails(true)}
+                className="h-auto rounded-none border-2 border-black bg-yellow-400 px-4 py-2 font-black text-black hover:bg-yellow-300"
               >
-                <DownloadIcon />
-                TELECHARGER
-              </button>
-
-              {isOwner && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm('Supprimer cette video ? Cette action est irreversible.')) {
-                      onDelete(video.id)
-                    }
+                Modifier la fiche
+              </Button>
+            )}
+            {details &&
+              (editingDetails ? (
+                <VideoDetailsEditor
+                  details={details}
+                  onCancel={() => setEditingDetails(false)}
+                  onSave={(updated) => {
+                    setDetails(updated)
+                    setEditingDetails(false)
+                    onDetailsChange?.(updated)
                   }}
-                  className="w-full text-sm font-bold uppercase hover:underline text-gray-500 hover:text-red-500 transition-colors text-center py-2"
-                >
-                  Supprimer cette video
-                </button>
-              )}
-            </div>
+                />
+              ) : (
+                <PeopleAndCategories
+                  details={details}
+                  onPersonClick={onPersonClick ? handlePersonClick : undefined}
+                />
+              ))}
+            {detailsError && <p role="status">Impossible de charger la fiche.</p>}
+            <TranscriptionSection videoId={video.id} />
           </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t-4 border-black bg-gray-50 p-2 sm:p-3">
+          <Button
+            type="button"
+            onClick={() => handleDownload(video.id)}
+            className="h-auto gap-2 rounded-none border-2 border-black bg-white px-3 py-1.5 font-black text-black uppercase hover:bg-yellow-300"
+          >
+            <DownloadIcon />
+            Télécharger
+          </Button>
+
+          {isOwner && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (confirm('Supprimer cette video ? Cette action est irreversible.')) {
+                  onDelete(video.id)
+                }
+              }}
+              className="h-auto rounded-none border-transparent px-2 py-1 text-xs font-bold text-gray-600 hover:text-red-700"
+            >
+              Supprimer cette vidéo
+            </Button>
+          )}
         </div>
       </div>
     </div>
