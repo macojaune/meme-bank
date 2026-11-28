@@ -1,6 +1,6 @@
 {
   "name": "memebank-upload",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Import a video into MemeBank from a file, direct URL or Wikimedia Commons file page",
   "type": "module",
@@ -12,7 +12,8 @@
   },
   "files": [
     "upload.mjs",
-    "source.mjs"
+    "source.mjs",
+    "upload-limits.json"
   ],
   "scripts": {
     "test": "node --test"

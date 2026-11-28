@@ -144,8 +144,10 @@ async function readTranscript({ transcript, transcriptFile }) {
   return transcript?.trim() ? transcript : undefined
 }
 
-function idempotencyKey(bytes, { title, transcript, publish }) {
-  const video = createHash('sha256').update(bytes).digest('hex')
+async function idempotencyKey(blob, { title, transcript, publish }) {
+  const hash = createHash('sha256')
+  for await (const chunk of blob.stream()) hash.update(chunk)
+  const video = hash.digest('hex')
   const payload = JSON.stringify({
     video,
     title: title ?? null,
@@ -178,9 +180,9 @@ const httpErrors = new Map([
   [429, ['RATE_LIMITED', 'Attends avant de relancer avec la même clé d’idempotence.']],
 ])
 
-async function upload({ endpoint, headers }, video, metadata, key) {
+async function upload({ endpoint, headers }, { blob, filename }, metadata, key) {
   const body = new FormData()
-  body.set('video', new Blob([video.bytes], { type: video.type }), video.filename)
+  body.set('video', blob, filename)
   if (metadata.title !== undefined) body.set('title', metadata.title)
   if (metadata.transcript !== undefined) body.set('transcript', metadata.transcript)
   if (metadata.publish) body.set('publish', 'true')
@@ -258,7 +260,19 @@ async function main() {
   const transcript = await readTranscript(args)
   const video = await readVideo(args.source)
   const metadata = { title: args.title, transcript, publish: args.publish }
-  return upload(config, video, metadata, args.key ?? idempotencyKey(video.bytes, metadata))
+  const blob =
+    video.bytes instanceof Blob
+      ? video.bytes.slice(0, video.bytes.size, video.type)
+      : new Blob([video.bytes], { type: video.type })
+  let key = args.key
+  if (!key) {
+    try {
+      key = await idempotencyKey(blob, metadata)
+    } catch {
+      throw new CliError('FILE_READ_FAILED', 'Impossible de lire le fichier vidéo.')
+    }
+  }
+  return upload(config, { blob, filename: video.filename }, metadata, key)
 }
 
 try {

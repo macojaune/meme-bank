@@ -47,7 +47,7 @@ before(async () => {
         size: bytes.length,
       }
       if (title === 'File:Missing.webm') file.mediatype = 'UNKNOWN'
-      if (title === 'File:Large.webm') file.size = 11 * 1024 * 1024
+      if (title === 'File:Large.webm') file.size = 51 * 1024 * 1024
       if (title === 'File:Truncated.webm') file.size++
       if (title === 'File:Unexpected.webm') file.url = 'https://fixtures.invalid/other.webm'
       if (title === 'File:Redirected.webm')
@@ -74,7 +74,7 @@ before(async () => {
         response.writeHead(302, { Location: 'http://127.0.0.1/secret' }).end()
       } else if (request.url === '/source/large') {
         response.writeHead(200, { 'Content-Type': 'video/mp4' })
-        response.write(Buffer.alloc(10 * 1024 * 1024))
+        response.write(Buffer.alloc(50 * 1024 * 1024))
         response.end('x')
       } else if (request.url === '/source/html') {
         response.writeHead(200, { 'Content-Type': 'text/html' }).end(htmlSecret)
@@ -278,7 +278,7 @@ test('les limites locales et un fichier de transcription non UTF-8 bloquent l’
   const large = join(folder, 'large.mp4')
   const transcript = join(folder, 'bad.txt')
   await writeFile(large, '')
-  await truncate(large, 10 * 1024 * 1024 + 1)
+  await truncate(large, 50 * 1024 * 1024 + 1)
   await writeFile(transcript, Buffer.from([0xff]))
   await expectError([large], 'FILE_TOO_LARGE')
   await expectError([video, '--transcript-file', transcript], 'INVALID_TRANSCRIPT')
@@ -327,4 +327,17 @@ test('la taille annoncée et les destinations Wikimedia hors périmètre bloquen
   await expectError([commonsPage + 'Redirected.webm'], 'COMMONS_UNEXPECTED_ORIGIN', {}, true)
   assert.equal(commonsRequests.length, 4)
   assert.equal(uploads.length, 0)
+})
+
+test('accepte un fichier juste sous 50 Mio et refuse un octet au-dessus', async () => {
+  const near = join(folder, 'juste-en-dessous.mp4')
+  const above = join(folder, 'juste-au-dessus.mp4')
+  await writeFile(near, bytes)
+  await writeFile(above, bytes)
+  await truncate(near, 50 * 1024 * 1024 - 1)
+  await truncate(above, 50 * 1024 * 1024 + 1)
+  await run([near])
+  assert.equal(uploads.at(-1).bytes.length, 50 * 1024 * 1024 - 1)
+  await expectError([above], 'FILE_TOO_LARGE')
+  assert.equal(uploads.length, 1)
 })

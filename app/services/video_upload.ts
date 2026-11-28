@@ -5,7 +5,8 @@ import db from '@adonisjs/lucid/services/db'
 import emitter from '@adonisjs/core/services/emitter'
 import logger from '@adonisjs/core/services/logger'
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import limits from '../../cli/upload-limits.json' with { type: 'json' }
 import { DateTime } from 'luxon'
 import Video from '#models/video'
 import Person from '#models/person'
@@ -32,7 +33,10 @@ type ImportReceipt = {
 }
 
 export function validatedVideo(request: HttpContext['request']) {
-  return request.file('video', { size: '10mb', extnames: ['mp4', 'webm', 'ogg', 'avi'] })
+  return request.file('video', {
+    size: limits.videoMiB * 1024 * 1024,
+    extnames: ['mp4', 'webm', 'ogg', 'avi'],
+  })
 }
 
 /**
@@ -88,11 +92,16 @@ async function writeVideo(
   client: TransactionClientContract,
   user: User,
   filePath: string,
-  content: Buffer,
+  file: MultipartFile,
   { title, description, region, personsData, agent }: UploadDetails
 ) {
   await ensureBucket(!!agent)
-  await videoDisk(!!agent).put(filePath, content)
+  const stream = createReadStream(file.tmpPath!)
+  try {
+    await videoDisk(!!agent).putStream(filePath, stream, { contentLength: file.size })
+  } finally {
+    stream.destroy()
+  }
   const video = await Video.create(
     {
       userId: user.id,
@@ -166,9 +175,8 @@ async function writeVideo(
 }
 
 export async function persistWebUpload(file: MultipartFile, user: User, details: UploadDetails) {
-  const content = await readFile(file.tmpPath!)
   const filePath = `videos/${randomUUID()}.${file.extname || 'mp4'}`
-  return db.transaction((client) => writeVideo(client, user, filePath, content, details))
+  return db.transaction((client) => writeVideo(client, user, filePath, file, details))
 }
 
 export class ImportConflict extends Error {}
@@ -179,12 +187,10 @@ export async function importVideo(
   key: string,
   details: UploadDetails & { agent: NonNullable<UploadDetails['agent']> }
 ) {
-  const content = await readFile(file.tmpPath!)
   const ext = file.extname || 'mp4'
-  const fingerprint = createHash('sha256')
-    .update(JSON.stringify([ext, details.title, details.agent]))
-    .update(content)
-    .digest('hex')
+  const hash = createHash('sha256').update(JSON.stringify([ext, details.title, details.agent]))
+  for await (const chunk of createReadStream(file.tmpPath!)) hash.update(chunk)
+  const fingerprint = hash.digest('hex')
 
   // Commit the reservation first so a retry after a storage write uses the same key.
   await db.rawQuery(
@@ -204,7 +210,7 @@ export async function importVideo(
       if (!receipt.video_id) throw new ImportConflict('La vidéo de cet import a été supprimée.')
       return { video: await Video.findOrFail(receipt.video_id, { client }), replayed: true }
     }
-    const video = await writeVideo(client, user, `videos/${receipt.id}.${ext}`, content, details)
+    const video = await writeVideo(client, user, `videos/${receipt.id}.${ext}`, file, details)
     await query(client).update({ video_id: video.id, created: true })
     return { video, replayed: false }
   })
