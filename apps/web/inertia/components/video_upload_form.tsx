@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Button } from '~/components/motion/button/base'
 import { Card } from '~/components/motion/card'
 import { Input } from '~/components/motion/input'
+import { VIDEO_TERRITORIES } from '../../shared/video_territories'
 import PersonTagInput from './person_tag_input.js'
 
 type Person = {
@@ -25,12 +26,6 @@ interface VideoUploadFormProps {
   onCancel?: () => void
   isProcessing?: boolean
 }
-
-const REGIONS = [
-  { id: 'guadeloupe', name: 'Guadeloupe' },
-  { id: 'martinique', name: 'Martinique' },
-  { id: 'guyane', name: 'Guyane' },
-]
 
 export default function VideoUploadForm({
   onUpload,
@@ -163,7 +158,7 @@ export default function VideoUploadForm({
             disabled={isProcessing}
           >
             <option value="">Selectionnez une region</option>
-            {REGIONS.map((r) => (
+            {VIDEO_TERRITORIES.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>

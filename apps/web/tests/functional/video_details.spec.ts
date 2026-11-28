@@ -135,15 +135,18 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
       personIds: [person.id],
       newPeople: ['Nouvelle personne'],
       newCategory: 'Réactions',
+      region: 'guyane',
     })
     assert.equal(edit.status, 200, await edit.clone().text())
     const data = (await edit.json()) as {
       title: string
+      region: string | null
       persons: { id: string }[]
       categories: { id: string; name: string }[]
       categoryOptions: { id: string }[]
     }
     assert.equal(data.title, authPayload.title)
+    assert.equal(data.region, 'guyane')
     assert.lengthOf(data.persons, 2)
     assert.equal(data.categories[0].name, 'Réactions')
     assert.equal(data.categoryOptions[0].id, data.categories[0].id)
@@ -171,6 +174,11 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
       ...authPayload,
       personIds: [randomUUID()],
     })
+    const invalidTerritory = await editor.request(path, 'PATCH', {
+      ...authPayload,
+      region: 'inconnu',
+    })
+    assert.equal(invalidTerritory.status, 422)
     const afterInvalid = await editor.request(path)
     assert.equal(invalid.status, 422)
     assert.deepEqual(await afterInvalid.json(), data)
@@ -187,6 +195,7 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
     const remove = await owner.request(path, 'PATCH', {
       ...authPayload,
       title: '',
+      region: null,
       categoryIds: [],
     })
     assert.equal(remove.status, 200, await remove.clone().text())
@@ -201,6 +210,7 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
     const ownerId = ownedVideo.userId
     await ownedVideo.refresh()
     assert.equal(ownedVideo.userId, ownerId)
+    assert.isNull(ownedVideo.region)
     assert.isTrue(ownedVideo.isPublished)
     assert.equal(ownedVideo.filePath, 'videos/fixture.mp4')
   })

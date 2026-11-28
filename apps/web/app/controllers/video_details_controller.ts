@@ -7,11 +7,13 @@ import Category from '#models/category'
 import Person from '#models/person'
 import Video from '#models/video'
 import env from '#start/env'
+import { VIDEO_TERRITORY_IDS } from '../../shared/video_territories.js'
 import { canViewVideo } from '#services/video_access'
 
 const detailsValidator = vine.compile(
   vine.object({
     title: vine.string().trim().maxLength(255).nullable(),
+    region: vine.enum(VIDEO_TERRITORY_IDS).nullable().optional(),
     personIds: vine.array(vine.string().uuid()).maxLength(20),
     newPeople: vine.array(vine.string().trim().minLength(2).maxLength(100)).maxLength(20),
     categoryIds: vine.array(vine.string().uuid()).maxLength(20),
@@ -39,6 +41,7 @@ async function details(video: Video, userId: string) {
   return {
     id: video.id,
     title: video.title,
+    region: video.region,
     ...access,
     persons: video.persons.map(({ id, name, socialMediaHandle, platform }) => ({
       id,
@@ -165,6 +168,7 @@ export default class VideoDetailsController {
       }
 
       video.title = data.title ?? ''
+      if (data.region !== undefined) video.region = data.region
       // Touch updated_at even when only a relationship changed.
       video.updatedAt = DateTime.now()
       await video.save()

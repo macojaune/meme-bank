@@ -1,3 +1,4 @@
+import { VIDEO_TERRITORIES } from '../../shared/video_territories.js'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { MultipartFile } from '@adonisjs/core/bodyparser'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
@@ -116,7 +117,7 @@ async function writeVideo(
       isFeatured: false,
       viewCount: 0,
       likeCount: 0,
-      region: region && ['guadeloupe', 'martinique', 'guyane'].includes(region) ? region : null,
+      region: VIDEO_TERRITORIES.some(({ id }) => id === region) ? region : null,
     },
     { client }
   )

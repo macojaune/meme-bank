@@ -12,6 +12,7 @@ import {
   MultiSelectValue,
 } from '~/components/motion/multi-select'
 import PersonTagInput from './person_tag_input'
+import { VIDEO_TERRITORIES } from '../../shared/video_territories'
 
 type Category = { id: string; name: string }
 
@@ -22,6 +23,7 @@ function normalizeCategorySearch(text: string) {
 export interface VideoDetails {
   id: string
   title: string
+  region: string | null
   canEdit: boolean
   canCreateCategory: boolean
   persons: { id: string; name: string; socialMediaHandle: string | null; platform: string | null }[]
@@ -39,6 +41,7 @@ export default function VideoDetailsEditor({
   onCancel: () => void
 }) {
   const [title, setTitle] = useState(details.title)
+  const [region, setRegion] = useState(details.region ?? '')
   const [persons, setPersons] = useState(details.persons)
   const [categoryIds, setCategoryIds] = useState(() => details.categories.map(({ id }) => id))
   const [newCategory, setNewCategory] = useState('')
@@ -69,6 +72,7 @@ export default function VideoDetailsEditor({
         },
         body: JSON.stringify({
           title,
+          region: region === (details.region ?? '') ? undefined : region || null,
           personIds: persons.filter(({ id }) => !id.startsWith('temp-')).map(({ id }) => id),
           newPeople: persons.filter(({ id }) => id.startsWith('temp-')).map(({ name }) => name),
           categoryIds,
@@ -108,6 +112,24 @@ export default function VideoDetailsEditor({
             field: 'rounded-none border-2 border-black focus-within:ring-2 focus-within:ring-black',
           }}
         />
+        <label className="block text-sm font-bold">
+          Territoire
+          <select
+            className="mt-2 block w-full border-2 border-black bg-white px-3 py-2"
+            value={region}
+            onChange={(event) => setRegion(event.target.value)}
+          >
+            <option value="">Aucun territoire</option>
+            {details.region && !VIDEO_TERRITORIES.some(({ id }) => id === details.region) && (
+              <option value={details.region}>{details.region}</option>
+            )}
+            {VIDEO_TERRITORIES.map(({ id, name }) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div>
           <h3 className="mb-2 text-sm font-black uppercase">Personnes</h3>
           <PersonTagInput
