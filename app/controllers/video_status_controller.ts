@@ -38,9 +38,8 @@ export default class VideoStatusController {
               hasThumbnail: !!video.thumbnailPath,
               transcriptionStatus: transcription?.status || null,
               isComplete:
-                video.isPublished &&
-                (video.skipAutoTranscription || !!transcription) &&
-                !!video.thumbnailPath,
+                video.skipAutoTranscription ||
+                (video.isPublished && !!transcription && !!video.thumbnailPath),
             }
           })
       )
@@ -77,9 +76,8 @@ export default class VideoStatusController {
           hasThumbnail: !!video.thumbnailPath,
           transcriptionStatus: transcription?.status || null,
           isComplete:
-            video.isPublished &&
-            (video.skipAutoTranscription || !!transcription) &&
-            !!video.thumbnailPath,
+            video.skipAutoTranscription ||
+            (video.isPublished && !!transcription && !!video.thumbnailPath),
         },
       })
     } catch (error) {

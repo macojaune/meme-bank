@@ -174,24 +174,18 @@ function getSource(url, signal, headers) {
   })
 }
 
-async function readSource(
-  url,
-  signal,
-  read,
-  { checkUrl, headers, redirectBudget = { remaining: 5 } } = {}
-) {
-  for (;;) {
+async function readSource(url, signal, read, { checkUrl, headers } = {}) {
+  for (let redirects = 0; ; redirects++) {
     checkUrl?.(url)
     const response = await getSource(url, signal, headers)
     try {
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
-        if (!response.headers.location || redirectBudget.remaining === 0) {
+        if (!response.headers.location || redirects === 5) {
           throw new CliError(
             'SOURCE_REDIRECT',
             'Redirection absente ou trop nombreuses redirections.'
           )
         }
-        redirectBudget.remaining--
         url = sourceUrl(response.headers.location, url)
         continue
       }
@@ -229,58 +223,6 @@ async function readVideoResponse(response, url, mediaType) {
   }
   const bytes = await readBounded(response, MAX_VIDEO_BYTES, tooLarge())
   return videoFile(bytes, filename, contentType)
-}
-
-async function findPageVideo(response, page) {
-  const limit = 512 * 1024
-  const tooLargePage = new CliError(
-    'PAGE_TOO_LARGE',
-    'La page dépasse 512 Kio. Fournis le lien direct du fichier vidéo.'
-  )
-  if (Number(response.headers['content-length']) > limit) throw tooLargePage
-  const html = await readBounded(response, limit, tooLargePage)
-  const { parse } = await import('parse5')
-  const pending = [parse(html.toString('utf8'), { scriptingEnabled: true })]
-  const htmlNamespace = 'http://www.w3.org/1999/xhtml'
-
-  function mediaUrl(node) {
-    const type = node.attrs.find((attribute) => attribute.name === 'type')?.value
-    if (type && !mediaTypes.has(type.split(';', 1)[0].trim().toLowerCase())) return null
-    const src = node.attrs.find((attribute) => attribute.name === 'src')?.value.trim()
-    if (!src) return null
-    let candidate
-    try {
-      candidate = new URL(src, page)
-    } catch {
-      return null
-    }
-    if (
-      !['http:', 'https:'].includes(candidate.protocol) ||
-      ['.m3u8', '.mpd'].includes(extname(candidate.pathname).toLowerCase())
-    )
-      return null
-    return sourceUrl(candidate.href, page)
-  }
-
-  while (pending.length) {
-    const node = pending.pop()
-    const children = node.childNodes ?? []
-    if (node.namespaceURI === htmlNamespace && node.tagName === 'video') {
-      const direct = mediaUrl(node)
-      if (direct) return direct
-      for (const child of children) {
-        if (child.namespaceURI === htmlNamespace && child.tagName === 'source') {
-          const candidate = mediaUrl(child)
-          if (candidate) return candidate
-        }
-      }
-    }
-    for (let index = children.length - 1; index >= 0; index--) pending.push(children[index])
-  }
-  throw new CliError(
-    'PAGE_VIDEO_UNAVAILABLE',
-    'Le HTML public ne contient pas de fichier vidéo dans une balise video/source. Fournis un lien direct ou un fichier téléchargé avec la fonction officielle du site.'
-  )
 }
 
 function checkCommonsMedia(url) {
@@ -370,32 +312,7 @@ async function downloadVideo(value) {
       const title = decodeURIComponent(url.pathname.slice(6))
       if (title.startsWith('File:')) return await downloadCommonsVideo(url, title, signal)
     }
-    const redirectBudget = { remaining: 5 }
-    const options = { redirectBudget }
-    const source = await readSource(
-      url,
-      signal,
-      (response, finalUrl, type) =>
-        type === 'text/html'
-          ? findPageVideo(response, finalUrl)
-          : readVideoResponse(response, finalUrl, type),
-      options
-    )
-    if (!(source instanceof URL)) return source
-    return await readSource(
-      source,
-      signal,
-      (response, finalUrl, type) => {
-        if (!mediaTypes.has(type)) {
-          throw new CliError(
-            'PAGE_MEDIA_NOT_FILE',
-            'La source de la balise vidéo ne renvoie pas un fichier vidéo pris en charge. Fournis un lien direct ou un fichier local.'
-          )
-        }
-        return readVideoResponse(response, finalUrl, type)
-      },
-      options
-    )
+    return await readSource(url, signal, readVideoResponse)
   } catch (error) {
     if (error instanceof CliError) throw error
     if (signal.aborted)

@@ -209,28 +209,26 @@ export async function importVideo(
     return { video, replayed: false }
   })
 
-  const queued = await db.transaction(async (client) => {
+  // CLI uploads are complete once stored. The upload event still credits the
+  // owner and can be retried independently of the web processing queues.
+  await db.transaction(async (client) => {
     const receipt: ImportReceipt = await query(client).forUpdate().firstOrFail()
     if (!receipt.video_id) throw new ImportConflict('La vidéo de cet import a été supprimée.')
-    if (receipt.dispatched) return true
-    const dispatched = await dispatchVideoUpload(result.video, user)
-    if (dispatched) await query(client).update({ dispatched: true })
-    return dispatched
+    if (receipt.dispatched) return
+    await emitter.emit(VideoUploaded, new VideoUploaded(result.video, user))
+    await query(client).update({ dispatched: true })
   })
-  return { ...result, queued }
+  return result
 }
 
-export async function dispatchVideoUpload(video: Video, user: User) {
+export async function dispatchWebVideoUpload(video: Video, user: User) {
   const queue = new QueueService({ enableOfflineQueue: false, maxRetriesPerRequest: 1 })
-  let queued = false
   try {
-    const payload = { videoId: video.id, filePath: video.filePath }
-    if (video.skipAutoTranscription) {
-      await queue.addJob('videoProcessing', payload, { jobId: `upload-${video.id}` })
-    } else {
-      await queue.addJob('transcription', { ...payload, language: 'fr' })
-    }
-    queued = true
+    await queue.addJob('transcription', {
+      videoId: video.id,
+      filePath: video.filePath,
+      language: 'fr',
+    })
   } catch {
     logger.warn({ videoId: video.id }, 'Video processing queue unavailable')
   } finally {
@@ -238,5 +236,4 @@ export async function dispatchVideoUpload(video: Video, user: User) {
   }
 
   await emitter.emit(VideoUploaded, new VideoUploaded(video, user))
-  return queued
 }

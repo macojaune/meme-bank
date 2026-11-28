@@ -14,7 +14,6 @@ type ImportResult = {
   videoId: string
   replayed: boolean
   isPublished: boolean
-  processingQueued: boolean
 }
 
 const baseUrl = 'http://127.0.0.1:46388'
@@ -130,7 +129,10 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
   ) {
     const headers = new Headers({ 'accept': 'application/json', 'idempotency-key': key })
     if (token && transport === 'basic') {
-      headers.set('authorization', `Basic ${Buffer.from(`fixture:${randomUUID()}`).toString('base64')}`)
+      headers.set(
+        'authorization',
+        `Basic ${Buffer.from(`fixture:${randomUUID()}`).toString('base64')}`
+      )
       headers.set('x-memebank-upload-token', token)
     } else if (token) {
       headers.set('authorization', `Bearer ${token}`)
@@ -176,7 +178,6 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
       videoId: saved.videoId,
       replayed: false,
       isPublished: false,
-      processingQueued: true,
     })
     assert.deepEqual(await simultaneousReplay.json(), { ...saved, replayed: true })
 
@@ -225,6 +226,14 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
         visible
       )
     }
+    const ownerStatus = await ownerWeb.request(`/api/v1/videos/${video.id}/status`)
+    assert.equal(ownerStatus.status, 200)
+    assert.include(((await ownerStatus.json()) as { data: object }).data, {
+      isPublished: false,
+      hasThumbnail: false,
+      hasTranscription: false,
+      isComplete: true,
+    })
     const ownerStream = await ownerWeb.request(`/videos/stream/${video.id}`)
     assert.equal(ownerStream.status, 200)
     assert.deepEqual(new Uint8Array(await ownerStream.arrayBuffer()), fixture)
@@ -249,6 +258,13 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
     const video = await Video.findOrFail(videoId)
     assert.isTrue(video.isPublished)
 
+    const thumbnails = new Queue('video-processing', { connection: redis })
+    try {
+      assert.isUndefined(await thumbnails.getJob(`upload-${videoId}`))
+    } finally {
+      await thumbnails.close()
+    }
+
     const queue = new Queue('transcription', { connection: redis })
     const events = new QueueEvents('transcription', { connection: redis })
     const worker = new Worker('transcription', processTranscriptionJob, { connection: redis })
@@ -267,6 +283,14 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
     } finally {
       await Promise.all([worker.close(), events.close(), queue.close()])
     }
+
+    const media = await fetch(baseUrl + `/api/v1/videos/${videoId}/media`)
+    assert.equal(media.status, 200)
+    assert.deepEqual(new Uint8Array(await media.arrayBuffer()), fixture)
+    const publicList = await fetch(baseUrl + '/api/v1/search?q=Recette%20publication')
+    assert.equal(publicList.status, 200)
+    const { data } = (await publicList.json()) as { data: { id: string }[] }
+    assert.isTrue(data.some((entry) => entry.id === videoId))
 
     const current = await fetch(baseUrl + `/api/v1/videos/${videoId}/transcription`)
     assert.equal(current.status, 200)
