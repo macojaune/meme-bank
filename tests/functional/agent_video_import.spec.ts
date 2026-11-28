@@ -298,6 +298,33 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
     assert.equal(body.data.text, transcript)
   })
 
+  test('enforces separate file and multipart ceilings', async ({ assert }) => {
+    async function sendVideo(size: number) {
+      const content = new Uint8Array(size)
+      content.set(fixture)
+      const form = new FormData()
+      form.set('video', new Blob([content], { type: 'video/mp4' }), 'limit.mp4')
+      return fetch(baseUrl + '/api/agent/video-import', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${uploadToken}`, 'Idempotency-Key': randomUUID() },
+        body: form,
+      })
+    }
+    const ceiling = 50 * 1024 * 1024
+    const accepted = await sendVideo(ceiling - 1)
+    assert.equal(accepted.status, 201)
+    await accepted.body?.cancel()
+
+    const oversizedFile = await sendVideo(ceiling + 1)
+    assert.equal(oversizedFile.status, 400)
+    const result = (await oversizedFile.json()) as { error: string }
+    assert.equal(result.error, 'invalid_video')
+
+    const oversizedRequest = await sendVideo(52 * 1024 * 1024 + 1)
+    assert.equal(oversizedRequest.status, 413)
+    await oversizedRequest.body?.cancel()
+  })
+
   test('keeps the existing web form upload and its automatic transcription job', async ({
     assert,
   }) => {

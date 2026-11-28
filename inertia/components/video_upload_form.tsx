@@ -1,3 +1,4 @@
+import limits from '../../cli/upload-limits.json'
 import { useState, useRef, useCallback } from 'react'
 import PersonTagInput from './person_tag_input.js'
 
@@ -41,8 +42,8 @@ export default function VideoUploadForm({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Fichier trop volumineux. Max 10MB.')
+    if (file.size > limits.videoMiB * 1024 * 1024) {
+      alert(`Le fichier dépasse la limite de ${limits.videoMiB} Mio.`)
       return
     }
     setSelectedFile(file)
@@ -86,7 +87,9 @@ export default function VideoUploadForm({
           >
             <div className="text-6xl mb-4">📹</div>
             <p className="font-bold">Cliquez pour selectionner une video</p>
-            <p className="text-sm text-gray-500">MP4, WebM, OGG - Max 10MB</p>
+            <p className="text-sm text-gray-500">
+              MP4, WebM, Ogg ou AVI · {limits.videoMiB} Mio maximum
+            </p>
           </div>
         ) : (
           <div className="flex items-center justify-between bg-white border-2 border-black p-4 rounded">
@@ -95,7 +98,7 @@ export default function VideoUploadForm({
               <div>
                 <p className="font-bold">{selectedFile.name}</p>
                 <p className="text-sm text-gray-500">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  {(selectedFile.size / 1024 / 1024).toFixed(2)} Mio
                 </p>
               </div>
             </div>

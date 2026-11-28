@@ -1,12 +1,14 @@
 import { lookup } from 'node:dns'
-import { constants } from 'node:fs'
-import { open } from 'node:fs/promises'
+import { constants, openAsBlob } from 'node:fs'
+import { open, stat } from 'node:fs/promises'
 import http from 'node:http'
 import https from 'node:https'
 import { BlockList, isIP } from 'node:net'
 import { basename, extname } from 'node:path'
 
-export const MAX_VIDEO_BYTES = 10 * 1024 * 1024
+import limits from './upload-limits.json' with { type: 'json' }
+
+export const MAX_VIDEO_BYTES = limits.videoMiB * 1024 * 1024
 export const MAX_TRANSCRIPT_BYTES = 64 * 1024
 
 export class CliError extends Error {
@@ -78,7 +80,7 @@ function videoFile(bytes, originalName, contentType) {
       'Utilise un fichier vidéo direct MP4, WebM, Ogg ou AVI.'
     )
   }
-  if (!bytes.length) throw new CliError('EMPTY_VIDEO', 'Le fichier vidéo est vide.')
+  if (!(bytes.size ?? bytes.length)) throw new CliError('EMPTY_VIDEO', 'Le fichier vidéo est vide.')
   const name = originalExt ? originalName.slice(0, -originalExt.length) : originalName
   const safeName = name.replace(/[\x00-\x1f\x7f/\\"]/g, '').trim()
   const stem = Array.from(safeName).slice(0, 100).join('') || 'video'
@@ -208,7 +210,7 @@ async function readSource(url, signal, read, { checkUrl, headers } = {}) {
   }
 }
 
-const tooLarge = () => new CliError('SOURCE_TOO_LARGE', 'La vidéo dépasse 10 Mio.')
+const tooLarge = () => new CliError('SOURCE_TOO_LARGE', `La vidéo dépasse ${limits.videoMiB} Mio.`)
 
 async function readVideoResponse(response, url, mediaType) {
   if (Number(response.headers['content-length']) > MAX_VIDEO_BYTES) throw tooLarge()
@@ -329,5 +331,22 @@ export async function readVideo(source) {
   if (/^[a-z][a-z\d+.-]*:\/\//i.test(source)) {
     throw new CliError('INVALID_SOURCE_URL', 'Seules les URLs HTTP(S) sont acceptées.')
   }
-  return videoFile(await readLocalFile(source, MAX_VIDEO_BYTES, 'vidéo'), basename(source))
+  let blob
+  try {
+    const metadata = await stat(source)
+    if (!metadata.isFile()) {
+      throw new CliError('INVALID_FILE', 'Indique un fichier vidéo ordinaire.')
+    }
+    if (metadata.size > MAX_VIDEO_BYTES) {
+      throw new CliError('FILE_TOO_LARGE', `Le fichier vidéo dépasse ${limits.videoMiB} Mio.`)
+    }
+    blob = await openAsBlob(source)
+    if (blob.size > MAX_VIDEO_BYTES) {
+      throw new CliError('FILE_TOO_LARGE', `Le fichier vidéo dépasse ${limits.videoMiB} Mio.`)
+    }
+  } catch (error) {
+    if (error instanceof CliError) throw error
+    throw new CliError('FILE_READ_FAILED', 'Impossible de lire le fichier vidéo.')
+  }
+  return videoFile(blob, basename(source))
 }

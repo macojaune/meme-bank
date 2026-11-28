@@ -48,7 +48,7 @@ transcription, exige un jeton émis avec `--publish` et un compte habilité.
 ## Fichiers pris en charge
 
 Pour l’usage par fichier local, le format recommandé est le MP4. L’API
-accepte les fichiers MP4, WebM, Ogg et AVI jusqu’à 10 Mio. Le titre est
+accepte les fichiers MP4, WebM, Ogg et AVI jusqu’à 50 Mio. Le titre est
 limité à 255 caractères et la transcription à 64 Kio. L’envoi dispose de
 120 secondes. La CLI envoie les octets du fichier d’origine. Si l’API
 refuse le format ou la taille, récupère un fichier compatible avant envoi.
