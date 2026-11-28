@@ -59,6 +59,18 @@ export default {
       } as QueueOptions,
     },
 
+    remix: {
+      name: 'remix',
+      opts: {
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 20,
+        },
+      } as QueueOptions,
+    },
+
     // Dead letter queue pour les jobs échoués
     deadLetter: {
       name: 'dead-letter',
@@ -79,6 +91,7 @@ export default {
       transcription: 2,
       embedding: 3,
       videoProcessing: 1,
+      remix: 1,
     },
   },
 }

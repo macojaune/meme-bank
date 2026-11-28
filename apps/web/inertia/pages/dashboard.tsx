@@ -416,6 +416,7 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
           onClose={() => setSelection(null)}
           onDelete={handleDelete}
           onDetailsChange={() => router.reload({ only: ['videos', 'likedVideos'] })}
+          onRemixOpen={() => router.reload({ only: ['videos', 'stats'] })}
         />
 
         {/* Footer */}

@@ -24,11 +24,16 @@ export interface DeadLetterJobData {
   failedAt: string
 }
 
+export interface RemixJobData {
+  remixId: string
+}
+
 export type JobData =
   | TranscriptionJobData
   | EmbeddingJobData
   | VideoProcessingJobData
   | DeadLetterJobData
+  | RemixJobData
 
 export interface JobResult {
   success: boolean
