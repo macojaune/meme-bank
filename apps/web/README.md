@@ -204,6 +204,7 @@ Additional variables are used by config and jobs even though they are not valida
 - `BREVO_WELCOME_TEMPLATE_ID`: explicitly verified active welcome template ID in that same account
 - `BREVO_RESET_SENDER_EMAIL`: active sender in the Brevo account used for password reset emails
 - `PASSWORD_RESET_ORIGIN`: public HTTPS origin for password reset links, without a trailing slash
+- `VIDEO_METADATA_EDITOR_ID`: optional account UUID allowed to edit published video details and create categories. Video owners can edit their own details and select existing categories.
 
 There are no default destination IDs. Missing, non-positive or non-integer IDs disable signup
 with HTTP 503 before any provider call; non-numeric environment values fail startup validation.

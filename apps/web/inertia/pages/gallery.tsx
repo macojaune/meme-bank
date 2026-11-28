@@ -102,7 +102,7 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
     sortBy: 'newest',
   })
 
-  const performSearch = async (pageNum = 1, append = false) => {
+  const performSearch = async (pageNum = 1, append = false, activeFilters = filters) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
@@ -111,9 +111,9 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
     setIsSearching(true)
     try {
       const params = new URLSearchParams({ includeOwnImports: '1' })
-      if (filters.query) params.append('q', filters.query)
-      if (filters.region) params.append('region', filters.region)
-      params.append('sortBy', filters.sortBy)
+      if (activeFilters.query) params.append('q', activeFilters.query)
+      if (activeFilters.region) params.append('region', activeFilters.region)
+      params.append('sortBy', activeFilters.sortBy)
       params.append('page', pageNum.toString())
       params.append('limit', '20')
 
@@ -193,10 +193,11 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
   )
 
   const handlePersonClick = (person: Person) => {
-    setFilters((prev) => ({ ...prev, query: person.name }))
+    const next = { ...filters, query: person.name }
+    setFilters(next)
     setVideoList([])
     setPage(1)
-    performSearch(1, false)
+    performSearch(1, false, next)
   }
 
   const handleDeleteVideo = (videoId: string) => {
@@ -503,6 +504,12 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
           onClose={() => setSelectedVideo(null)}
           onDelete={handleDeleteVideo}
           onPersonClick={handlePersonClick}
+          onDetailsChange={({ id, title, persons }) => {
+            setVideoList((list) =>
+              list.map((video) => (video.id === id ? { ...video, title, persons } : video))
+            )
+            setSelectedVideo((video) => (video?.id === id ? { ...video, title, persons } : video))
+          }}
         />
 
         {/* Footer */}
