@@ -114,7 +114,7 @@ before(async () => {
       JSON.stringify({
         videoId,
         replayed,
-        isPublished: form.get('publish') === 'true',
+        isPublished: key !== 'not-published' && form.get('publish') === 'true',
         ...(key === 'queue-down' ? { processingQueued: false, secret: htmlSecret } : {}),
       })
     )
@@ -171,20 +171,21 @@ test('le fichier minimal arrive intact et la clé reste stable à la relance', a
   const { stdout, stderr } = await run([video])
   const first = uploads.at(-1)
   assert.equal(stderr, '')
-  assert.deepEqual(JSON.parse(stdout), { videoId, replayed: false, isPublished: false })
+  assert.deepEqual(JSON.parse(stdout), { videoId, replayed: false, isPublished: true })
   assert.equal(first.headers.authorization, `Bearer ${testToken}`)
   assert.match(first.key, /^[a-f0-9]{64}$/)
   assert.deepEqual(first.bytes, bytes)
-  assert.deepEqual([...first.form.keys()], ['video'])
+  assert.deepEqual([...first.form.keys()], ['video', 'publish'])
   assert.equal(first.form.get('video').name, 'recette.mp4')
   assert.equal(first.form.get('video').type, 'video/mp4')
 
-  const replay = await run([video])
+  assert.equal(first.form.get('publish'), 'true')
+  const replay = await run([video, '--publish'])
   assert.equal(uploads.at(-1).key, first.key)
   assert.equal(JSON.parse(replay.stdout).replayed, true)
 })
 
-test('le titre et la transcription UTF-8 changent la clé et gardent l’import privé', async () => {
+test('le titre et la transcription UTF-8 changent la clé et publient la vidéo', async () => {
   await run([video])
   const transcript = join(folder, 'transcription.txt')
   await writeFile(transcript, 'An nou ay.\nKréyòl.')
@@ -192,9 +193,9 @@ test('le titre et la transcription UTF-8 changent la clé et gardent l’import 
   const attempt = uploads.at(-1)
   assert.equal(attempt.form.get('title'), 'Titre créole')
   assert.equal(attempt.form.get('transcript').replaceAll('\r\n', '\n'), 'An nou ay.\nKréyòl.')
-  assert.equal(attempt.form.has('publish'), false)
+  assert.equal(attempt.form.get('publish'), 'true')
   assert.notEqual(attempt.key, uploads[0].key)
-  assert.equal(JSON.parse(stdout).isPublished, false)
+  assert.equal(JSON.parse(stdout).isPublished, true)
   const inline = await run([
     video,
     '--title',
@@ -213,7 +214,12 @@ test('la publication sans transcription et la clé personnalisée sont explicite
   assert.equal(attempt.form.get('publish'), 'true')
   assert.equal(attempt.form.has('transcript'), false)
   assert.equal(JSON.parse(stdout).isPublished, true)
-  await expectError([video, '--publish', '--idempotency-key', 'deny'], 'FORBIDDEN')
+  await expectError([video, '--idempotency-key', 'deny'], 'FORBIDDEN')
+  assert.equal(uploads.at(-1).form.get('publish'), 'true')
+})
+
+test('une réponse réussie sans publication ne donne pas un succès CLI', async () => {
+  await expectError([video, '--idempotency-key', 'not-published'], 'PUBLICATION_NOT_CONFIRMED')
 })
 
 test('le mode DEV sépare les identifiants ingress et le jeton applicatif', async () => {
@@ -236,7 +242,7 @@ test('le lien direct télécharge avant l’envoi et les requêtes source resten
   const { stdout } = await run(['http://93.184.215.14/source/redirect'], {}, true)
   assert.deepEqual(uploads.at(-1).bytes, bytes)
   assert.equal(uploads.at(-1).key, uploads[0].key)
-  assert.deepEqual(JSON.parse(stdout), { videoId, replayed: true, isPublished: false })
+  assert.deepEqual(JSON.parse(stdout), { videoId, replayed: true, isPublished: true })
   assert.equal(sources.length, 2)
   for (const headers of sources) {
     assert.equal(headers.authorization, undefined)
@@ -268,7 +274,7 @@ test('un défaut de mise en file est visible sans relayer les champs inconnus', 
   assert.deepEqual(JSON.parse(stdout), {
     videoId,
     replayed: false,
-    isPublished: false,
+    isPublished: true,
     processingQueued: false,
   })
 })
@@ -293,10 +299,10 @@ test('les limites locales et un fichier de transcription non UTF-8 bloquent l’
 test('une fiche Wikimedia Commons résout le WebM original et le rejeu garde le même identifiant', async () => {
   const link = commonsPage + 'Vid%C3%A9o_d%27essai.webm'
   const initial = await run([link], {}, true)
-  assert.deepEqual(JSON.parse(initial.stdout), { videoId, replayed: false, isPublished: false })
+  assert.deepEqual(JSON.parse(initial.stdout), { videoId, replayed: false, isPublished: true })
   assert.deepEqual(uploads[0].bytes, bytes)
   assert.equal(uploads[0].form.get('video').type, 'video/webm')
-  assert.deepEqual([...uploads[0].form.keys()], ['video'])
+  assert.deepEqual([...uploads[0].form.keys()], ['video', 'publish'])
   assert.equal(commonsRequests[0].url.searchParams.get('titles'), "File:Vidéo_d'essai.webm")
   assert.equal(commonsRequests[1].url.pathname, '/wikipedia/commons/fixture.webm')
   for (const { headers } of commonsRequests) {
@@ -307,7 +313,7 @@ test('une fiche Wikimedia Commons résout le WebM original et le rejeu garde le 
   }
 
   const replay = await run([link], {}, true)
-  assert.deepEqual(JSON.parse(replay.stdout), { videoId, replayed: true, isPublished: false })
+  assert.deepEqual(JSON.parse(replay.stdout), { videoId, replayed: true, isPublished: true })
   assert.equal(uploads[0].key, uploads[1].key)
 })
 

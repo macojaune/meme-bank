@@ -10,7 +10,7 @@ const usage = {
     '--title, --name': 'Titre facultatif.',
     '--transcript-file': 'Chemin du fichier de transcription en texte UTF-8.',
     '--transcript': 'Transcription en texte. Alternative à --transcript-file.',
-    '--publish': 'Demande la publication. Le jeton doit avoir ce droit.',
+    '--publish': 'Publication dans la banque commune, déjà activée par défaut.',
     '--idempotency-key': 'Clé personnalisée pour répéter un import.',
     '--help': 'Affiche cette aide.',
   },
@@ -72,7 +72,6 @@ function argumentsFrom(argv) {
     title,
     transcript: values.transcript,
     transcriptFile: values['transcript-file'],
-    publish: values.publish === true,
     key,
   }
 }
@@ -144,7 +143,7 @@ async function readTranscript({ transcript, transcriptFile }) {
   return transcript?.trim() ? transcript : undefined
 }
 
-async function idempotencyKey(blob, { title, transcript, publish }) {
+async function idempotencyKey(blob, { title, transcript }) {
   const hash = createHash('sha256')
   for await (const chunk of blob.stream()) hash.update(chunk)
   const video = hash.digest('hex')
@@ -152,7 +151,7 @@ async function idempotencyKey(blob, { title, transcript, publish }) {
     video,
     title: title ?? null,
     transcript: transcript ?? null,
-    publish,
+    publish: true,
   })
   return createHash('sha256').update(payload).digest('hex')
 }
@@ -166,7 +165,7 @@ const httpErrors = new Map([
     ],
   ],
   [401, ['UNAUTHORIZED', 'Vérifie le jeton d’import et, sur DEV, le secret d’accès.']],
-  [403, ['FORBIDDEN', 'Le jeton ou son utilisateur ne dispose pas du droit demandé.']],
+  [403, ['FORBIDDEN', 'Utilise un jeton avec les droits video:upload et video:publish.']],
   [404, ['ENDPOINT_NOT_FOUND', 'Vérifie MEMEBANK_URL et la disponibilité de la route d’import.']],
   [
     409,
@@ -185,7 +184,7 @@ async function upload({ endpoint, headers }, { blob, filename }, metadata, key) 
   body.set('video', blob, filename)
   if (metadata.title !== undefined) body.set('title', metadata.title)
   if (metadata.transcript !== undefined) body.set('transcript', metadata.transcript)
-  if (metadata.publish) body.set('publish', 'true')
+  body.set('publish', 'true')
   const signal = AbortSignal.timeout(120_000)
   try {
     const response = await fetch(endpoint, {
@@ -231,6 +230,13 @@ async function upload({ endpoint, headers }, { blob, filename }, metadata, key) 
     ) {
       throw invalid
     }
+    if (!result.isPublished) {
+      throw new CliError(
+        'PUBLICATION_NOT_CONFIRMED',
+        'MemeBank a reçu l’import mais la publication dans la banque commune reste à vérifier.',
+        response.status
+      )
+    }
     const { videoId, replayed, isPublished, processingQueued } = result
     return {
       videoId,
@@ -259,7 +265,7 @@ async function main() {
   const config = configFrom(process.env)
   const transcript = await readTranscript(args)
   const video = await readVideo(args.source)
-  const metadata = { title: args.title, transcript, publish: args.publish }
+  const metadata = { title: args.title, transcript }
   const blob =
     video.bytes instanceof Blob
       ? video.bytes.slice(0, video.bytes.size, video.type)
