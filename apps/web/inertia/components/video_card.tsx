@@ -1,3 +1,4 @@
+import { AspectRatio } from '~/components/motion/aspect-ratio'
 import { useState } from 'react'
 
 interface Person {
@@ -125,7 +126,6 @@ function ProcessingLoader() {
 export default function VideoCard({
   video,
   isLiked,
-  userId,
   onVideoClick,
   onLikeClick,
   onPersonClick,
@@ -150,7 +150,7 @@ export default function VideoCard({
       onClick={() => !isProcessing && onVideoClick(video)}
     >
       {/* Thumbnail */}
-      <div className="aspect-video bg-gray-100 relative overflow-hidden">
+      <AspectRatio ratio={16 / 9} animated={false} className="bg-gray-100">
         {!imageError && (video.thumbnailPath || !video.skipAutoTranscription) && (
           <img
             src={
@@ -199,7 +199,7 @@ export default function VideoCard({
         <div className="absolute top-2 left-2 px-2 py-1 bg-white border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           {region.flag} {region.name}
         </div>
-      </div>
+      </AspectRatio>
 
       {/* Video Info */}
       <div className="p-4">

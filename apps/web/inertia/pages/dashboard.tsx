@@ -1,5 +1,8 @@
 import { Head, router, Link } from '@inertiajs/react'
 import { useState } from 'react'
+import { Button, ButtonLink } from '~/components/motion/button/base'
+import { Card } from '~/components/motion/card'
+import { AspectRatio } from '~/components/motion/aspect-ratio'
 import VideoModal from '../components/video_modal'
 import RaycastAccess from '../components/raycast_access'
 import PointsToast from '../components/points_toast'
@@ -116,6 +119,8 @@ const TrophyIcon = () => (
 
 const UploadIcon = () => (
   <svg
+    aria-hidden="true"
+    className="shrink-0"
     width="24"
     height="24"
     viewBox="0 0 24 24"
@@ -156,7 +161,9 @@ function StatCard({
   color: string
 }) {
   return (
-    <div className={`${color} border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]`}>
+    <Card
+      className={`${color} gap-0 rounded-none border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]`}
+    >
       <div className="flex justify-center mb-2">
         <div className="text-black">{icon}</div>
       </div>
@@ -164,7 +171,7 @@ function StatCard({
       <p className="font-black text-center text-5xl md:text-6xl leading-none">
         {value.toLocaleString()}
       </p>
-    </div>
+    </Card>
   )
 }
 
@@ -191,7 +198,7 @@ function VideoCard({
       onClick={onClick}
     >
       {/* Thumbnail */}
-      <div className="aspect-video bg-gray-100 relative overflow-hidden">
+      <AspectRatio ratio={16 / 9} animated={false} className="bg-gray-100">
         {!imageError && thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -228,7 +235,7 @@ function VideoCard({
             </span>
           )}
         </div>
-      </div>
+      </AspectRatio>
 
       {/* Info */}
       <div className="p-4">
@@ -258,16 +265,16 @@ function VideoCard({
 
         {/* Publish button for pending videos */}
         {!video.isPublished && onPublish && (
-          <button
+          <Button
             type="button"
             onClick={(e) => {
               e.stopPropagation()
               onPublish()
             }}
-            className="mt-3 w-full bg-yellow-400 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all"
+            className="mt-3 h-auto w-full rounded-none bg-yellow-400 text-black hover:bg-yellow-400 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-[translate,box-shadow,background-color]"
           >
             PUBLIER
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -295,7 +302,7 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
       <Head title="Dashboard - Meme Bank" />
       <div className="min-h-screen bg-white">
         {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b-4 border-black">
+        <header className="sticky top-0 z-50 bg-white border-b-4 border-black">
           <div className="max-w-full mx-auto px-4 py-3 flex justify-between items-center">
             <Link
               href="/"
@@ -318,21 +325,21 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
         </header>
 
         {/* Hero */}
-        <div className="max-w-full mx-auto px-4 py-8 md:py-12 pt-20">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase text-center mb-4 leading-none">
+        <div className="max-w-full mx-auto px-4 py-8 md:py-12">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase text-center mb-6 leading-none break-words">
             BIENVENUE,
             <br />
             <span className="text-yellow-400">{auth.user.fullName}</span>
           </h1>
 
           <div className="text-center">
-            <Link
+            <ButtonLink
               href="/upload"
-              className="inline-block bg-yellow-400 border-4 border-black px-8 py-4 font-black uppercase text-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center gap-2 mx-auto w-fit"
+              className="h-auto max-w-full rounded-none bg-yellow-400 border-4 border-black px-5 sm:px-8 py-4 text-black font-black uppercase text-base sm:text-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:bg-yellow-400 hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] focus-visible:outline-2 focus-visible:outline-offset-4"
             >
               <UploadIcon />
-              UPLOADER UN NOUVEAU MEME
-            </Link>
+              <span>Ajouter un mème</span>
+            </ButtonLink>
             <RaycastAccess />
           </div>
         </div>
@@ -382,12 +389,12 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
           ) : (
             <div className="text-center py-12">
               <p className="text-xl font-bold mb-4">Aucune video pour le moment</p>
-              <Link
+              <ButtonLink
                 href="/upload"
-                className="inline-block bg-yellow-400 border-4 border-black px-6 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                className="h-auto rounded-none bg-yellow-400 text-black hover:bg-yellow-400 border-4 border-black px-6 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-[translate,box-shadow,background-color]"
               >
-                UPLOADER
-              </Link>
+                Ajouter une vidéo
+              </ButtonLink>
             </div>
           )}
         </div>

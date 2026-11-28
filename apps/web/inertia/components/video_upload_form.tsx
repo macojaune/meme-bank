@@ -1,15 +1,18 @@
 import limits from 'memebank-upload/upload-limits.json'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
+import { Button } from '~/components/motion/button/base'
+import { Card } from '~/components/motion/card'
+import { Input } from '~/components/motion/input'
 import PersonTagInput from './person_tag_input.js'
 
-interface Person {
+type Person = {
   id: string
   name: string
   socialMediaHandle: string | null
   platform: string | null
 }
 
-interface UploadData {
+export type UploadData = {
   title: string
   description: string
   region: string
@@ -71,7 +74,7 @@ export default function VideoUploadForm({
   return (
     <div className="space-y-6">
       {/* Zone de fichier */}
-      <div className="card-neo p-6">
+      <Card className="card-neo gap-0 rounded-none border-black bg-white p-6">
         <input
           ref={fileInputRef}
           type="file"
@@ -81,16 +84,20 @@ export default function VideoUploadForm({
         />
 
         {!selectedFile ? (
-          <div
+          <Button
+            type="button"
+            aria-label="Choisir une vidéo"
             onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer text-center py-8 border-2 border-dashed border-black rounded hover:bg-gray-50"
+            className="h-auto w-full flex-col gap-0 rounded bg-white text-black py-8 border-2 border-dashed border-black hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2"
           >
-            <div className="text-6xl mb-4">📹</div>
-            <p className="font-bold">Cliquez pour selectionner une video</p>
-            <p className="text-sm text-gray-500">
+            <span aria-hidden="true" className="text-6xl mb-4">
+              📹
+            </span>
+            <span className="font-bold">Choisir une vidéo</span>
+            <span className="text-sm text-gray-500">
               MP4, WebM, Ogg ou AVI · {limits.videoMiB} Mio maximum
-            </p>
-          </div>
+            </span>
+          </Button>
         ) : (
           <div className="flex items-center justify-between bg-white border-2 border-black p-4 rounded">
             <div className="flex items-center gap-3">
@@ -115,22 +122,26 @@ export default function VideoUploadForm({
             </button>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Formulaire */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-bold uppercase mb-2">Titre *</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-3 border-2 border-black rounded"
-            placeholder="Titre de la video"
-            required
-            disabled={isProcessing}
-          />
-        </div>
+        <Input
+          label="Titre"
+          name="title"
+          type="text"
+          value={title}
+          onChange={setTitle}
+          classNames={{
+            label: 'block text-sm font-bold uppercase mb-2',
+            field:
+              'h-auto rounded border-2 border-black focus-within:ring-2 focus-within:ring-black',
+            input: 'p-3 text-black',
+          }}
+          placeholder="Titre de la vidéo"
+          required
+          disabled={isProcessing}
+        />
 
         <div>
           <label className="block text-sm font-bold uppercase mb-2">Description</label>
@@ -169,13 +180,13 @@ export default function VideoUploadForm({
           />
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={isProcessing || !selectedFile}
-          className="w-full btn-neo btn-neo-primary py-3 disabled:opacity-50"
+          className="h-auto w-full rounded-none btn-neo btn-neo-primary py-3 bg-yellow-400 text-black hover:bg-yellow-400 focus-visible:outline-2"
         >
-          {isProcessing ? 'Upload en cours...' : '📤 Upload'}
-        </button>
+          {isProcessing ? 'Envoi en cours…' : 'Ajouter la vidéo'}
+        </Button>
       </form>
     </div>
   )

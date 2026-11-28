@@ -35,7 +35,7 @@ export default function Navigation({ user, isLoggedIn }: NavigationProps) {
                   Dashboard
                 </Link>
                 <Link href="/upload" className="btn-neo btn-neo-primary text-sm px-4 py-2">
-                  Upload
+                  Ajouter un mème
                 </Link>
               </>
             )}
@@ -86,7 +86,7 @@ export default function Navigation({ user, isLoggedIn }: NavigationProps) {
                 href="/upload"
                 className="btn-neo btn-neo-primary text-xs px-3 py-1.5 whitespace-nowrap"
               >
-                Upload
+                Ajouter un mème
               </Link>
             </>
           )}
