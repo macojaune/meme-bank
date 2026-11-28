@@ -5,7 +5,7 @@ import { videoDisk } from '#services/video_storage'
 import { canViewVideo } from '#services/video_access'
 import logger from '@adonisjs/core/services/logger'
 import emitter from '@adonisjs/core/services/emitter'
-import { validatedVideo, persistWebUpload, dispatchVideoUpload } from '#services/video_upload'
+import { validatedVideo, persistWebUpload, dispatchWebVideoUpload } from '#services/video_upload'
 import VideoDownloaded from '#events/video_downloaded'
 
 export default class VideoUploadController {
@@ -22,7 +22,7 @@ export default class VideoUploadController {
         region: request.input('region'),
         personsData: request.input('persons'),
       })
-      await dispatchVideoUpload(video, user)
+      await dispatchWebVideoUpload(video, user)
       return response.redirect().toPath('/gallery')
     } catch (error) {
       logger.error({ err: error }, 'Upload failed')

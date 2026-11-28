@@ -74,7 +74,6 @@ export default class AgentVideoImportsController {
         videoId: result.video.id,
         replayed: result.replayed,
         isPublished: result.video.isPublished,
-        processingQueued: result.queued,
       })
     } catch (error) {
       if (error instanceof ImportConflict) {

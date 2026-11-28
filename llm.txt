@@ -19,12 +19,11 @@ Le jeton expire au bout de 30 jours. L’opérateur peut le révoquer avec
 
 ## Exemples
 
-Import minimal depuis un fichier local, un lien direct ou une fiche vidéo.
+L’assistant récupère un MP4 compatible selon ses règles, puis passe le
+fichier local à la CLI. Pour un import minimal, exécute la commande suivante.
 
 ```sh
 memebank-upload ./video.mp4
-memebank-upload 'https://example.com/video.mp4'
-memebank-upload 'https://commons.wikimedia.org/wiki/File:Men_Boxing_(1891).webm'
 ```
 
 Ajoute le titre et la transcription quand ils sont fournis.
@@ -43,34 +42,27 @@ Il peut ensuite sélectionner « Publier » dans son tableau de bord pour rendre
 la vidéo visible aux autres membres et dans la banque de mèmes publique.
 Un titre omis reste vide. L’interface affiche « Sans titre ».
 Une transcription fournie devient la première révision, marquée « Importée ».
-Sans transcription fournie, MemeBank crée la vignette sans lancer de transcription.
 Ajoute `--publish` seulement sur demande. La publication, possible sans
 transcription, exige un jeton émis avec `--publish` et un compte habilité.
 
-## Sources prises en charge
+## Fichiers pris en charge
 
-- Fichiers locaux et liens directs HTTP(S) vers des MP4, WebM, Ogg ou AVI.
-- Fiches publiques `https://commons.wikimedia.org/wiki/File:…` dont
-  l’original est un WebM. La CLI demande à l’API publique MediaWiki l’original
-  courant et le récupère depuis Wikimedia. Les anciennes révisions ne sont
-  pas prises en charge. Vérifie les conditions de réutilisation et le crédit
-  demandé sur la fiche avant de publier la vidéo dans MemeBank.
-- YouTube, Instagram, TikTok, les autres pages vidéo, les flux HLS/DASH et
-  les sources qui exigent une session demandent un lien direct autorisé ou
-  un fichier obtenu par une fonction officielle de téléchargement.
+Pour l’usage par fichier local, le format recommandé est le MP4. L’API
+accepte les fichiers MP4, WebM, Ogg et AVI jusqu’à 10 Mio. Le titre est
+limité à 255 caractères et la transcription à 64 Kio. L’envoi dispose de
+120 secondes. La CLI envoie les octets du fichier d’origine. Si l’API
+refuse le format ou la taille, récupère un fichier compatible avant envoi.
 
-La vidéo est limitée à 10 Mio, le titre à 255 caractères et la transcription
-à 64 Kio. La CLI lit la source depuis des adresses IP publiques, suit jusqu’à
-cinq redirections et dispose de 60 secondes pour récupérer le média.
-L’envoi à MemeBank est limité à 120 secondes. Les identifiants MemeBank
-servent exclusivement à cet envoi.
+MemeBank rend le fichier disponible dès son stockage. L’import CLI ne
+programme aucune conversion, transcription ou génération de vignette.
+Le formulaire web conserve son circuit de traitement automatique.
 
 ## Résultat et relance
 
 Le CLI écrit un objet JSON sur stdout en cas de succès.
 
 ```json
-{"videoId":"93c4bd71-0fc7-45b9-8bff-05d2862c381d","replayed":false,"isPublished":false,"processingQueued":true}
+{"videoId":"93c4bd71-0fc7-45b9-8bff-05d2862c381d","replayed":false,"isPublished":false}
 ```
 
 `replayed: true` indique que MemeBank a reconnu l’import. Par défaut,
@@ -78,8 +70,6 @@ le CLI calcule une clé SHA-256 à partir du contenu de la vidéo, du titre,
 de la transcription et de la demande de publication. Pour relancer un envoi
 interrompu, reprends les mêmes octets et options. Si tu avais fourni
 `--idempotency-key`, réutilise la même valeur avec les mêmes données.
-Si `processingQueued` vaut `false`, la vidéo a été enregistrée.
-Relance avec les mêmes données et la même clé pour retenter la mise en file.
 
 En cas d’erreur, le CLI quitte avec le code 1 et écrit un objet JSON
 `{"error":{"code":"…","message":"…","status":401}}` sur stderr.
@@ -89,11 +79,6 @@ Le statut HTTP est présent quand le serveur a répondu.
 - `409` : vérifie la clé d’idempotence et les données de l’import.
 - `400`, `413` ou `422` : vérifie la taille, le format vidéo et les métadonnées.
 - `503 private_storage_unavailable` : le stockage privé reste à configurer côté MemeBank.
-- `SOURCE_HTTP_ERROR` : vérifie que la source est publique. Réessaie plus tard si elle est indisponible.
-- `SOURCE_TOO_LARGE` : utilise une vidéo de 10 Mio au plus.
-- `COMMONS_VIDEO_UNAVAILABLE` : utilise la fiche actuelle d’un WebM public ou son fichier.
-- `COMMONS_INVALID_RESPONSE` ou `COMMONS_UNEXPECTED_ORIGIN` : réessaie plus tard ou récupère le fichier depuis la fiche officielle.
-- `UNSUPPORTED_SOURCE` : utilise un fichier exporté ou un lien direct pris en charge.
 
 Pour un autre client HTTP, utilise `POST /api/agent/video-import`,
 `Authorization: Bearer <jeton>` et `Idempotency-Key`. Le corps multipart contient
