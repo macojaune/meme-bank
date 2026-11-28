@@ -504,11 +504,13 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
           onClose={() => setSelectedVideo(null)}
           onDelete={handleDeleteVideo}
           onPersonClick={handlePersonClick}
-          onDetailsChange={({ id, title, persons }) => {
+          onDetailsChange={({ id, title, persons, region }) => {
             setVideoList((list) =>
-              list.map((video) => (video.id === id ? { ...video, title, persons } : video))
+              list.map((video) => (video.id === id ? { ...video, title, persons, region } : video))
             )
-            setSelectedVideo((video) => (video?.id === id ? { ...video, title, persons } : video))
+            setSelectedVideo((video) =>
+              video?.id === id ? { ...video, title, persons, region } : video
+            )
           }}
         />
 

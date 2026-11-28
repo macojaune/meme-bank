@@ -361,7 +361,7 @@ function VideoModalContent({
   }, [video.id])
 
   const isOwner = video.userId === userId
-  const region = getRegionDisplay(video.region)
+  const region = getRegionDisplay(details ? details.region : video.region)
 
   const handleDownload = async (videoId: string) => {
     try {
