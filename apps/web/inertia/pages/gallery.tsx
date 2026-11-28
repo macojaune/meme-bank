@@ -500,6 +500,13 @@ export default function Gallery({ videos, userId, likedVideoIds, auth }: Gallery
         {/* Video Modal */}
         <VideoModal
           video={selectedVideo}
+          videoIds={videoList
+            .filter((video) => video.isPublished || video.skipAutoTranscription)
+            .map((video) => video.id)}
+          onNavigate={(id) => {
+            const target = videoList.find((video) => video.id === id)
+            if (target) void handleVideoClick(target)
+          }}
           userId={userId}
           onClose={() => setSelectedVideo(null)}
           onDelete={handleDeleteVideo}

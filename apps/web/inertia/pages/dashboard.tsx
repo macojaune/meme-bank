@@ -186,17 +186,20 @@ function VideoCard({
 }) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
 
   const thumbnailUrl = video.thumbnailPath
 
   return (
     <div
-      className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden group cursor-pointer hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={onClick}
+      className="relative bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden group cursor-pointer hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all"
     >
+      <button
+        type="button"
+        aria-label={`Ouvrir la fiche : ${video.title || 'Sans titre'}`}
+        aria-haspopup="dialog"
+        onClick={onClick}
+        className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-black"
+      />
       {/* Thumbnail */}
       <AspectRatio ratio={16 / 9} animated={false} className="bg-gray-100">
         {!imageError && thumbnailUrl ? (
@@ -216,7 +219,7 @@ function VideoCard({
 
         {/* Play overlay */}
         <div
-          className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+          className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
         >
           <div className="w-16 h-16 bg-white border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <PlayIcon />
@@ -271,7 +274,7 @@ function VideoCard({
               e.stopPropagation()
               onPublish()
             }}
-            className="mt-3 h-auto w-full rounded-none bg-yellow-400 text-black hover:bg-yellow-400 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-[translate,box-shadow,background-color]"
+            className="relative z-20 mt-3 h-auto w-full rounded-none bg-yellow-400 text-black hover:bg-yellow-400 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-[translate,box-shadow,background-color]"
           >
             PUBLIER
           </Button>
@@ -282,18 +285,19 @@ function VideoCard({
 }
 
 export default function Dashboard({ auth, stats, videos, likedVideos = [] }: DashboardProps) {
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
-
-  const handleVideoClick = (video: Video) => {
-    setSelectedVideo(video)
-  }
+  const [selection, setSelection] = useState<{
+    id: string
+    section: 'favorites' | 'archives'
+  } | null>(null)
+  const activeVideos = selection?.section === 'favorites' ? likedVideos : videos
+  const selectedVideo = activeVideos.find(({ id }) => id === selection?.id) ?? null
 
   const handlePublish = (videoId: string) => {
     router.post(`/videos/${videoId}/publish`, {}, { onSuccess: () => router.reload() })
   }
 
   const handleDelete = () => {
-    setSelectedVideo(null)
+    setSelection(null)
     router.reload()
   }
 
@@ -365,7 +369,11 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
             <h2 className="text-3xl md:text-4xl font-black uppercase mb-6">MES FAVORIS</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {likedVideos.map((video) => (
-                <VideoCard key={video.id} video={video} onClick={() => handleVideoClick(video)} />
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  onClick={() => setSelection({ id: video.id, section: 'favorites' })}
+                />
               ))}
             </div>
           </div>
@@ -381,7 +389,7 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
                 <VideoCard
                   key={video.id}
                   video={video}
-                  onClick={() => handleVideoClick(video)}
+                  onClick={() => setSelection({ id: video.id, section: 'archives' })}
                   onPublish={() => handlePublish(video.id)}
                 />
               ))}
@@ -402,8 +410,10 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
         {/* Modal */}
         <VideoModal
           video={selectedVideo}
+          videoIds={activeVideos.map(({ id }) => id)}
+          onNavigate={(id) => setSelection((current) => current && { ...current, id })}
           userId={auth.user.id.toString()}
-          onClose={() => setSelectedVideo(null)}
+          onClose={() => setSelection(null)}
           onDelete={handleDelete}
           onDetailsChange={() => router.reload({ only: ['videos', 'likedVideos'] })}
         />

@@ -132,7 +132,6 @@ export default function VideoCard({
 }: VideoCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
   const isProcessing = !video.isPublished && !video.skipAutoTranscription
   const title = video.title || 'Sans titre'
   const persons = video.persons || []
@@ -140,15 +139,21 @@ export default function VideoCard({
 
   return (
     <div
-      className={`bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150 cursor-pointer overflow-hidden group ${
+      className={`relative bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150 cursor-pointer overflow-hidden group ${
         isProcessing
           ? 'opacity-75'
           : 'hover:translate-y-[-4px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'
       }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => !isProcessing && onVideoClick(video)}
     >
+      {!isProcessing && (
+        <button
+          type="button"
+          aria-label={`Ouvrir la fiche : ${title}`}
+          aria-haspopup="dialog"
+          onClick={() => onVideoClick(video)}
+          className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-black"
+        />
+      )}
       {/* Thumbnail */}
       <AspectRatio ratio={16 / 9} animated={false} className="bg-gray-100">
         {!imageError && (video.thumbnailPath || !video.skipAutoTranscription) && (
@@ -187,7 +192,7 @@ export default function VideoCard({
         {/* Play overlay - only for published videos */}
         {!isProcessing && (
           <div
-            className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <div className="w-20 h-20 bg-white border-4 border-black flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <PlayIcon />
@@ -220,7 +225,7 @@ export default function VideoCard({
                   e.stopPropagation()
                   onPersonClick?.(person)
                 }}
-                className="px-2 py-0.5 bg-cyan border-2 border-black text-xs font-bold hover:bg-black hover:text-white transition-colors"
+                className="relative z-20 px-2 py-0.5 bg-cyan border-2 border-black text-xs font-bold hover:bg-black hover:text-white transition-colors"
               >
                 {person.name}
               </button>
@@ -244,7 +249,7 @@ export default function VideoCard({
             <button
               type="button"
               onClick={(e) => onLikeClick(video.id, e)}
-              className={`flex items-center gap-1 px-3 py-1 border-2 border-black font-bold text-sm transition-all ${
+              className={`relative z-20 flex items-center gap-1 px-3 py-1 border-2 border-black font-bold text-sm transition-all ${
                 isLiked
                   ? 'bg-red-500 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                   : 'bg-white text-black hover:bg-red-100'
