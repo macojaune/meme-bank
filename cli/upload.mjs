@@ -110,12 +110,12 @@ function configFrom(env) {
   const ingress = env.MEMEBANK_DEV_BASIC_AUTH
   if (ingress) {
     if (
-      base.origin !== 'https://memebank-dev.marvinl.com' ||
+      !['https://dev-memebank.marvinl.com', 'https://memebank-dev.marvinl.com'].includes(base.origin) ||
       !/^[^:\r\n]+:[^\r\n]+$/.test(ingress)
     ) {
       throw new CliError(
         'INVALID_DEV_AUTH',
-        'MEMEBANK_DEV_BASIC_AUTH attend utilisateur:motdepasse et s’applique uniquement à https://memebank-dev.marvinl.com.'
+        'MEMEBANK_DEV_BASIC_AUTH attend utilisateur:motdepasse et s’applique uniquement aux adresses DEV de MemeBank.'
       )
     }
     headers.Authorization = `Basic ${Buffer.from(ingress, 'utf8').toString('base64')}`

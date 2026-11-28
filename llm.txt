@@ -6,7 +6,7 @@ Depuis la racine du dépôt, exécute `npm install -g ./cli`, puis
 
 ## Connexion à DEV
 
-Définis `MEMEBANK_URL=https://memebank-dev.marvinl.com`.
+Définis `MEMEBANK_URL=https://dev-memebank.marvinl.com`.
 Injecte le jeton d’import depuis ton gestionnaire de secrets dans
 `MEMEBANK_UPLOAD_TOKEN`. Le jeton suffit sur DEV. Supprime l’ancienne variable
 `MEMEBANK_DEV_BASIC_AUTH` de ta configuration.
@@ -88,5 +88,3 @@ Pour un autre client HTTP, utilise `POST /api/agent/video-import`,
 `Authorization: Bearer <jeton>` et `Idempotency-Key`. Le corps multipart contient
 `video` et `publish=true` pour une publication directe, avec `title` et
 `transcript` en option.
-Sur le domaine DEV ci-dessus, réserve `Authorization: Basic …` à l’accès DEV
-et transmets le jeton brut dans `X-MemeBank-Upload-Token`.

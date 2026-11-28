@@ -24,7 +24,7 @@ https.get = function (url, options, callback) {
 
 const fetch = globalThis.fetch
 globalThis.fetch = (url, options) => {
-  if (url instanceof URL && url.origin === 'https://memebank-dev.marvinl.com') {
+  if (url instanceof URL && ['https://dev-memebank.marvinl.com', 'https://memebank-dev.marvinl.com'].includes(url.origin)) {
     url = new URL(url.pathname + url.search, origin)
   }
   return fetch(url, options)
