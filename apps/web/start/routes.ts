@@ -183,10 +183,6 @@ router
       .patch('/videos/:id/details', '#controllers/video_details_controller.update')
       .where('id', router.matchers.uuid())
 
-    router
-      .post('/videos/:id/details/categories', '#controllers/video_details_controller.addCategory')
-      .where('id', router.matchers.uuid())
-
     // Person routes
     router.get('/persons/search', '#controllers/persons_controller.search')
     router.get('/videos/:videoId/persons', '#controllers/persons_controller.index')

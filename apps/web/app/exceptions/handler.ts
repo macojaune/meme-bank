@@ -35,8 +35,8 @@ export default class HttpExceptionHandler extends ExceptionHandler {
     const invalidCsrf = (error as { code?: string } | null)?.code === 'E_BAD_CSRF_TOKEN'
     if (
       invalidCsrf &&
-      ((ctx.request.method() === 'PATCH' && endpoint === '/api/v1/videos/:id/details') ||
-        (ctx.request.method() === 'POST' && endpoint === '/api/v1/videos/:id/details/categories'))
+      ctx.request.method() === 'PATCH' &&
+      endpoint === '/api/v1/videos/:id/details'
     ) {
       return ctx.response.header('Cache-Control', 'no-store').status(419).send({
         message: 'La session de modification a expiré.',
