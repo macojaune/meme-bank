@@ -1,0 +1,196 @@
+import { validate as isUuid } from 'uuid'
+import type { HttpContext } from '@adonisjs/core/http'
+import { videoAssetUrl } from '#utils/url_helper'
+import Video from '#models/video'
+import VideoTranscription from '#models/video_transcription'
+import Person from '#models/person'
+import logger from '@adonisjs/core/services/logger'
+
+export default class SearchController {
+  /**
+   * Universal search across videos with filters
+   */
+  async search({ request, response, auth }: HttpContext) {
+    try {
+      const rawVideoIds = request.input('videoIds')
+      let videoIds: string[] | undefined
+      if (rawVideoIds !== undefined) {
+        // The query parser expands literal commas; URLSearchParams encodes them as %2C.
+        videoIds = Array.isArray(rawVideoIds)
+          ? rawVideoIds
+          : typeof rawVideoIds === 'string'
+            ? rawVideoIds.split(',', 9)
+            : []
+        if (!videoIds.length || videoIds.length > 8 || !videoIds.every((id) => isUuid(id))) {
+          return response.badRequest({
+            error: 'videoIds must contain 1 to 8 comma-separated UUIDs',
+          })
+        }
+      }
+
+      const query = request.input('q', '')
+      const region = request.input('region', '')
+      // Support multiple personIds (can be string or array)
+      let personIds = request.input('personId', [])
+      if (!Array.isArray(personIds)) {
+        personIds = personIds ? [personIds] : []
+      }
+      const sortBy = request.input('sortBy', 'newest')
+      const page = request.input('page', 1)
+      const limit = request.input('limit', 20)
+
+      console.log('[Search] Query:', { query, region, personIds, sortBy })
+
+      // Start with base query - only published videos for public gallery
+      let videoQuery = Video.query()
+        .where((visibility) => {
+          visibility.where('is_published', true)
+          if (auth.user && request.input('includeOwnImports') === '1') {
+            visibility.orWhere({ user_id: auth.user.id, skip_auto_transcription: true })
+          }
+        })
+        .preload('transcriptions', (q) => {
+          q.where('is_current', true)
+        })
+        .preload('persons')
+
+      if (videoIds) videoQuery.whereIn('id', videoIds)
+
+      // Filter by region
+      if (region) {
+        videoQuery = videoQuery.where('region', region)
+      }
+
+      // Filter by multiple persons (AND logic - videos with ALL selected persons)
+      if (personIds.length > 0) {
+        for (const personId of personIds) {
+          videoQuery = videoQuery.whereHas('persons', (q) => {
+            q.where('person_id', personId)
+          })
+        }
+      }
+
+      // Text search in title, description, or transcription
+      if (query && query.trim().length > 0) {
+        const searchTerm = `%${query.toLowerCase()}%`
+
+        // First get video IDs from transcription matches
+        const transcriptions = await VideoTranscription.query()
+          .where('is_current', true)
+          .where('transcription_text', 'ilike', searchTerm)
+
+        const matchingVideoIds = transcriptions.map((t) => t.videoId)
+
+        videoQuery = videoQuery.where((q) => {
+          q.where('title', 'ilike', searchTerm)
+            .orWhere('description', 'ilike', searchTerm)
+            .orWhereIn('id', matchingVideoIds)
+        })
+      }
+
+      // Apply sorting
+      switch (sortBy) {
+        case 'oldest':
+          videoQuery = videoQuery.orderBy('created_at', 'asc')
+          break
+        case 'views':
+          videoQuery = videoQuery.orderBy('view_count', 'desc')
+          break
+        case 'likes':
+          videoQuery = videoQuery.orderBy('like_count', 'desc')
+          break
+        case 'newest':
+        default:
+          videoQuery = videoQuery.orderBy('created_at', 'desc')
+      }
+
+      const videos = await videoQuery.paginate(page, limit)
+
+      console.log('[Search] Found:', videos.total)
+
+      // Format results
+      const results = videos.all().map((video) => ({
+        id: video.id,
+        title: video.title,
+        description: video.description,
+        filePath: videoAssetUrl(video, 'media'),
+        thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+        skipAutoTranscription: video.skipAutoTranscription,
+        durationSeconds: video.durationSeconds,
+        viewCount: video.viewCount,
+        likeCount: video.likeCount,
+        isPublished: video.isPublished,
+        region: video.region,
+        createdAt: video.createdAt,
+        userId: video.userId,
+        persons: video.persons.map((p) => ({
+          id: p.id,
+          name: p.name,
+          socialMediaHandle: p.socialMediaHandle,
+        })),
+        transcription: video.transcriptions[0]
+          ? {
+              text: video.transcriptions[0].transcriptionText,
+              language: video.transcriptions[0].language,
+            }
+          : null,
+      }))
+
+      return response.ok({
+        data: results,
+        meta: videos.getMeta(),
+      })
+    } catch (error) {
+      console.error('[Search] Error:', error)
+      logger.error('Search error:', error)
+      return response.internalServerError({
+        error: 'Search failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Get videos by specific person
+   */
+  async byPerson({ params, response }: HttpContext) {
+    try {
+      const person = await Person.findOrFail(params.personId)
+
+      const videos = await Video.query()
+        .where('is_published', true)
+        .whereHas('persons', (q) => {
+          q.where('person_id', params.personId)
+        })
+        .orderBy('created_at', 'desc')
+        .exec()
+
+      const formattedVideos = videos.map((video) => ({
+        id: video.id,
+        title: video.title,
+        thumbnailPath: videoAssetUrl(video, 'thumbnail'),
+        skipAutoTranscription: video.skipAutoTranscription,
+        viewCount: video.viewCount,
+        likeCount: video.likeCount,
+        region: video.region,
+        createdAt: video.createdAt,
+      }))
+
+      return response.ok({
+        person: {
+          id: person.id,
+          name: person.name,
+          socialMediaHandle: person.socialMediaHandle,
+          platform: person.platform,
+        },
+        videos: formattedVideos,
+        total: formattedVideos.length,
+      })
+    } catch (error) {
+      logger.error('By person search error:', error)
+      return response.internalServerError({
+        error: 'Failed to get videos by person',
+      })
+    }
+  }
+}

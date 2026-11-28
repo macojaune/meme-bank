@@ -33,4 +33,9 @@ node_modules/
 
 # Session files
 session-*.md
-*.md.bak 
+*.md.bak
+
+.turbo/
+/apps/web/build/
+/apps/web/public/assets/
+/apps/web/public/.vite/

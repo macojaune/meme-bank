@@ -8,9 +8,9 @@ Depuis la racine du dépôt, exécute `npm install -g ./cli`, puis
 
 Définis `MEMEBANK_URL=https://memebank-dev.marvinl.com`.
 Injecte le jeton d’import depuis ton gestionnaire de secrets dans
-`MEMEBANK_UPLOAD_TOKEN`. Pour le domaine DEV, injecte aussi les identifiants
-d’accès dans `MEMEBANK_DEV_BASIC_AUTH`, au format `utilisateur:motdepasse`.
-Garde ces valeurs hors des commandes, fichiers de projet et journaux.
+`MEMEBANK_UPLOAD_TOKEN`. Le jeton suffit sur DEV. Supprime l’ancienne variable
+`MEMEBANK_DEV_BASIC_AUTH` de ta configuration.
+Garde le jeton hors des commandes, fichiers de projet et journaux.
 
 L’opérateur MemeBank crée un jeton avec les droits d’import et de publication
 pour le compte autorisé.

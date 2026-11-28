@@ -1,3 +1,7 @@
+packages:
+  - 'apps/*'
+  - 'cli'
+
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 

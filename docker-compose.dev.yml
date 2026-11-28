@@ -65,6 +65,7 @@ services:
       - memebank_dev_network
     environment:
       - NODE_ENV=development
+      - ENV_PATH=/workspace
       - PORT=63240
       - HOST=0.0.0.0
       - APP_KEY=${APP_KEY}
@@ -96,9 +97,11 @@ services:
       - minio
     # Override CMD to run in dev mode with hot reload
     command: ['sh', '-c', 'npm run dev']
+    working_dir: /workspace/apps/web
     volumes:
-      - .:/app
-      - /app/node_modules
+      - .:/workspace
+      - /workspace/node_modules
+      - /workspace/apps/web/node_modules
 
   # Queue Workers for transcription, embedding, and video processing
   workers:
@@ -111,6 +114,7 @@ services:
       - memebank_dev_network
     environment:
       - NODE_ENV=development
+      - ENV_PATH=/workspace
       - PORT=63240
       - HOST=0.0.0.0
       - APP_KEY=${APP_KEY}
@@ -138,9 +142,11 @@ services:
       - redis
       - minio
     command: ['sh', '-c', 'sleep 5 && node ace queue:work all']
+    working_dir: /workspace/apps/web
     volumes:
-      - .:/app
-      - /app/node_modules
+      - .:/workspace
+      - /workspace/node_modules
+      - /workspace/apps/web/node_modules
 
   # Database Admin Interface
   adminer:
