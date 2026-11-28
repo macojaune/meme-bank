@@ -1,6 +1,6 @@
 # Importer une vidéo dans MemeBank
 
-Installe la CLI depuis le dépôt MemeBank avec Node.js 22 ou plus récent.
+Installe la CLI MemeBank 0.5.0 depuis le dépôt avec Node.js 22 ou plus récent.
 Depuis la racine du dépôt, exécute `npm install -g ./cli`, puis
 `memebank-upload --help`.
 
@@ -12,8 +12,13 @@ Injecte le jeton d’import depuis ton gestionnaire de secrets dans
 d’accès dans `MEMEBANK_DEV_BASIC_AUTH`, au format `utilisateur:motdepasse`.
 Garde ces valeurs hors des commandes, fichiers de projet et journaux.
 
-L’opérateur MemeBank crée le jeton pour le compte autorisé avec
-`node ace video:upload-token issue <user-id> --output /chemin/prive/token`.
+L’opérateur MemeBank crée un jeton avec les droits d’import et de publication
+pour le compte autorisé.
+
+```sh
+node ace video:upload-token issue <user-id> --output /chemin/prive/token --publish
+```
+
 Le jeton expire au bout de 30 jours. L’opérateur peut le révoquer avec
 `node ace video:upload-token revoke <user-id> --id <id>`.
 
@@ -36,14 +41,10 @@ memebank-upload ./video.mp4 --title "Titre donné par l’utilisateur" --transcr
 du texte brut UTF-8. Utilise `--transcript 'texte'` pour un court extrait
 ou `--transcript-file` pour un texte multiligne.
 
-L’import est privé par défaut, y compris lorsqu’une transcription est fournie.
-Le compte propriétaire retrouve la vidéo dans sa galerie et son tableau de bord.
-Il peut ensuite sélectionner « Publier » dans son tableau de bord pour rendre
-la vidéo visible aux autres membres et dans la banque de mèmes publique.
-Un titre omis reste vide. L’interface affiche « Sans titre ».
-Une transcription fournie devient la première révision, marquée « Importée ».
-Ajoute `--publish` seulement sur demande. La publication, possible sans
-transcription, exige un jeton émis avec `--publish` et un compte habilité.
+La commande publie la vidéo directement dans la banque commune. Les
+commandes existantes avec `--publish` produisent le même résultat. Un
+titre omis reste vide. L’interface affiche « Sans titre ». Une transcription
+fournie devient la première révision, marquée « Importée ».
 
 ## Fichiers pris en charge
 
@@ -62,7 +63,7 @@ Le formulaire web conserve son circuit de traitement automatique.
 Le CLI écrit un objet JSON sur stdout en cas de succès.
 
 ```json
-{"videoId":"93c4bd71-0fc7-45b9-8bff-05d2862c381d","replayed":false,"isPublished":false}
+{"videoId":"93c4bd71-0fc7-45b9-8bff-05d2862c381d","replayed":false,"isPublished":true}
 ```
 
 `replayed: true` indique que MemeBank a reconnu l’import. Par défaut,
@@ -75,13 +76,17 @@ En cas d’erreur, le CLI quitte avec le code 1 et écrit un objet JSON
 `{"error":{"code":"…","message":"…","status":401}}` sur stderr.
 Le statut HTTP est présent quand le serveur a répondu.
 
-- `UNAUTHORIZED` ou `FORBIDDEN` : vérifie le jeton, l’accès DEV et le droit de publication.
+- `UNAUTHORIZED` : vérifie le jeton et l’accès DEV.
+- `FORBIDDEN` : utilise un jeton avec `video:upload` et `video:publish`.
+- `PUBLICATION_NOT_CONFIRMED` : vérifie la présence de la vidéo dans la banque.
+  Le succès de l’envoi ne confirme pas sa publication.
 - `409` : vérifie la clé d’idempotence et les données de l’import.
 - `400`, `413` ou `422` : vérifie la taille, le format vidéo et les métadonnées.
 - `503 private_storage_unavailable` : le stockage privé reste à configurer côté MemeBank.
 
 Pour un autre client HTTP, utilise `POST /api/agent/video-import`,
 `Authorization: Bearer <jeton>` et `Idempotency-Key`. Le corps multipart contient
-`video`, ainsi que `title`, `transcript` et `publish=true` si demandés.
+`video` et `publish=true` pour une publication directe, avec `title` et
+`transcript` en option.
 Sur le domaine DEV ci-dessus, réserve `Authorization: Basic …` à l’accès DEV
 et transmets le jeton brut dans `X-MemeBank-Upload-Token`.
