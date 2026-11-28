@@ -1,6 +1,8 @@
 export interface Video {
   id: string
   title: string
+  tags?: { name: string }[]
+  persons?: { name: string }[]
   description?: string | null
   thumbnailPath?: string | null
   filePath?: string | null
@@ -94,8 +96,13 @@ export function orderByRecentIds(ids: string[], videos: Video[]) {
   return ids.flatMap((id) => byId.get(id) ?? [])
 }
 
+export function videoLabels(video: Video) {
+  const names = [...(video.tags ?? []), ...(video.persons ?? [])].map(({ name }) => name.trim())
+  return [...new Set(names.filter(Boolean))]
+}
+
 export function subtitle(video: Video, query: string) {
-  const text = (video.transcription?.text || video.description || '').replace(/\s+/g, ' ').trim()
+  const text = (video.transcription?.text || '').replace(/\s+/g, ' ').trim()
   const hit = query ? text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase()) : 0
   const start = Math.max(0, hit - 20)
   return (

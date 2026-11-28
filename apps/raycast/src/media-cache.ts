@@ -1,7 +1,12 @@
+import { getPreferenceValues } from "@raycast/api";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { authorizationFor } from "./auth";
-import { cachedVideo } from "./video-files";
+import {
+  cachedVideo,
+  videoCachePolicy,
+  type VideoCachePreferences,
+} from "./video-files";
 
 export function getVideoFile(mediaUrl: string, title: string): Promise<string> {
   return cachedVideo(
@@ -9,5 +14,6 @@ export function getVideoFile(mediaUrl: string, title: string): Promise<string> {
     mediaUrl,
     authorizationFor(mediaUrl),
     title,
+    videoCachePolicy(getPreferenceValues<VideoCachePreferences>()),
   );
 }

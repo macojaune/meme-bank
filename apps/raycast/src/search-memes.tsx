@@ -13,6 +13,7 @@ import {
 } from '@raycast/api'
 import { usePromise } from '@raycast/utils'
 import { transferAttachment } from './attachment'
+import { scheduleClipboardExpiry } from './clipboard-expiry'
 import { authorizationFor, defaultOrigin } from './auth'
 import { loadThumbnail } from './thumbnail'
 import {
@@ -22,6 +23,7 @@ import {
   orderByRecentIds,
   searchVideos,
   subtitle,
+  videoLabels,
   type Video,
 } from './catalog'
 import { getVideoFile } from './media-cache'
@@ -61,7 +63,8 @@ function VideoItem({
       const url = mediaUrl(base, video)
       const file = await getVideoFile(url, video.title)
       if (action === 'path') {
-        await Clipboard.copy(file)
+        await Clipboard.copy(file, { concealed: true })
+        await scheduleClipboardExpiry(file, 'text')
         toast.style = Toast.Style.Success
         toast.title = 'Chemin du fichier copié'
         return
@@ -71,14 +74,20 @@ function VideoItem({
         await toast.hide()
         return
       }
-      const result = await transferAttachment(file, Clipboard, action === 'paste', async () => {
-        // History is best-effort; the copied attachment is still usable if storage fails.
-        try {
-          await rememberVideo(base, video.id)
-        } catch (error) {
-          console.error('Historique MemeBank', error)
-        }
-      })
+      const result = await transferAttachment(
+        file,
+        Clipboard,
+        action === 'paste',
+        async () => {
+          // History is best-effort; the copied attachment is still usable if storage fails.
+          try {
+            await rememberVideo(base, video.id)
+          } catch (error) {
+            console.error('Historique MemeBank', error)
+          }
+        },
+        scheduleClipboardExpiry
+      )
       if (result !== 'paste-requested') {
         toast.style = Toast.Style.Success
         toast.title =
@@ -96,17 +105,23 @@ function VideoItem({
     }
   }
   const seconds = Math.round(video.durationSeconds ?? 0)
+  const labels = videoLabels(video)
+  const accessories: List.Item.Accessory[] = labels.slice(0, 3).map((tag) => ({ tag }))
+  if (labels.length > 3) {
+    accessories.push({ text: '+' + (labels.length - 3), tooltip: labels.slice(3).join(', ') })
+  }
+  if (seconds > 0) {
+    accessories.push({
+      text: Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0'),
+    })
+  }
   return (
     <List.Item
       id={video.id}
       title={video.title}
-      subtitle={subtitle(video, query)}
+      subtitle={labels.length ? undefined : subtitle(video, query)}
       icon={thumbnail ? { source: thumbnail, fallback: Icon.FilmStrip } : Icon.FilmStrip}
-      accessories={
-        seconds > 0
-          ? [{ text: Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0') }]
-          : []
-      }
+      accessories={accessories}
       actions={
         <ActionPanel>
           <Action

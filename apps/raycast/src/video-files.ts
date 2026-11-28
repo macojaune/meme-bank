@@ -6,8 +6,23 @@ import { pipeline } from "node:stream/promises";
 
 const MiB = 1024 * 1024;
 const maxFileSize = 64 * MiB;
-const maxCacheSize = 256 * MiB;
-const maxAge = 7 * 24 * 60 * 60 * 1000;
+const day = 24 * 60 * 60 * 1000;
+
+export interface VideoCachePreferences {
+  cacheRetentionDays?: string;
+  cacheSizeMiB?: string;
+}
+
+export function videoCachePolicy(preferences: VideoCachePreferences = {}) {
+  const days = Number(preferences.cacheRetentionDays);
+  const size = Number(preferences.cacheSizeMiB);
+  return {
+    maxAge: ([1, 7, 30].includes(days) ? days : 7) * day,
+    maxCacheSize: ([128, 256, 512].includes(size) ? size : 256) * MiB,
+  };
+}
+
+type CachePolicy = ReturnType<typeof videoCachePolicy>;
 const types: Record<string, string> = {
   "video/mp4": ".mp4",
   "video/webm": ".webm",
@@ -18,7 +33,11 @@ const types: Record<string, string> = {
 };
 const inflight = new Map<string, Promise<string>>();
 
-async function prune(directory: string, keep: string) {
+async function prune(
+  directory: string,
+  keep: string,
+  { maxAge, maxCacheSize }: CachePolicy,
+) {
   const entries = await Promise.all(
     (await readdir(directory)).map(async (name) => {
       const path = join(directory, name);
@@ -46,9 +65,15 @@ async function resolveFile(
   url: string,
   headers: Record<string, string>,
   title: string,
+  policy: CachePolicy,
 ) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const hash = createHash("sha256").update(headers.Authorization || "").update("\0").update(url).digest("hex").slice(0, 16);
+  const hash = createHash("sha256")
+    .update(headers.Authorization || "")
+    .update("\0")
+    .update(url)
+    .digest("hex")
+    .slice(0, 16);
   const name =
     Array.from(
       title
@@ -63,11 +88,11 @@ async function resolveFile(
   for (const extension of new Set(Object.values(types))) {
     const path = join(directory, stem + extension);
     const info = await stat(path).catch(() => undefined);
-    if (info && info.size > 0 && Date.now() - info.mtimeMs <= maxAge) {
+    if (info && info.size > 0 && Date.now() - info.mtimeMs <= policy.maxAge) {
       const now = new Date();
       // Track use for eviction. Published media are keyed by their asset URL.
       await utimes(path, now, now);
-      await prune(directory, path);
+      await prune(directory, path, policy);
       return path;
     }
   }
@@ -123,7 +148,7 @@ async function resolveFile(
     );
     if (!size) throw new Error("Le fichier vidéo est vide.");
     await rename(partial, path);
-    await prune(directory, path);
+    await prune(directory, path, policy);
     return path;
   } finally {
     await rm(partial, { force: true });
@@ -135,11 +160,12 @@ export function cachedVideo(
   url: string,
   headers: Record<string, string>,
   title = "MemeBank",
+  policy = videoCachePolicy(),
 ) {
   const key = JSON.stringify([directory, url, headers.Authorization]);
   let pending = inflight.get(key);
   if (!pending) {
-    pending = resolveFile(directory, url, headers, title).finally(() =>
+    pending = resolveFile(directory, url, headers, title, policy).finally(() =>
       inflight.delete(key),
     );
     inflight.set(key, pending);
