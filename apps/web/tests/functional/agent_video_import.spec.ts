@@ -29,7 +29,7 @@ class WebSession {
 
   async request(
     path: string,
-    options: { login?: string; inertia?: boolean; upload?: FormData } = {}
+    options: { login?: string; inertia?: boolean; upload?: FormData; post?: boolean; skipCsrf?: boolean } = {}
   ): Promise<Response> {
     const headers = new Headers({
       cookie: Array.from(this.cookies, ([key, value]) => `${key}=${value}`).join('; '),
@@ -39,12 +39,13 @@ class WebSession {
       headers.set('accept', 'text/html, application/xhtml+xml')
       if (this.version) headers.set('x-inertia-version', this.version)
     }
-    if (options.login || options.upload) {
+    if ((options.login || options.upload || options.post) && !options.skipCsrf) {
       headers.set('x-xsrf-token', decodeURIComponent(this.cookies.get('XSRF-TOKEN') ?? ''))
     }
+    if (options.post) headers.set('accept', 'application/json')
     if (options.login) headers.set('content-type', 'application/json')
     const response = await fetch(baseUrl + path, {
-      method: options.login || options.upload ? 'POST' : 'GET',
+      method: options.login || options.upload || options.post ? 'POST' : 'GET',
       headers,
       body: options.login ? JSON.stringify({ email: options.login, password }) : options.upload,
       redirect: 'manual',
@@ -165,6 +166,38 @@ test.group('Agent video import — isolated HTTP and queues', (group) => {
     assert.equal(deniedRevoked.status, 401)
     const after = await Video.all()
     assert.lengthOf(after, before.length)
+  })
+
+  test('issues personal read tokens only from a session with CSRF and rejects crossed scopes', async ({ assert }) => {
+    const session = new WebSession()
+    await session.request('/login', { inertia: true })
+    const route = '/api/raycast/token'
+    assert.equal((await session.request(route, { post: true })).status, 401)
+    assert.equal((await session.login(owner.email)).headers.get('location'), '/dashboard')
+    assert.equal((await session.request(route, { post: true, skipCsrf: true })).status, 403)
+    const issued = await session.request(route, { post: true })
+    assert.equal(issued.status, 201)
+    assert.equal(issued.headers.get('cache-control'), 'private, no-store')
+    const { token } = await issued.json() as { token: string }
+    const catalog = (value: string) => fetch(baseUrl + '/api/v1/search', {
+      headers: { Authorization: 'Bearer ' + value },
+    })
+    assert.equal((await catalog(token)).status, 200)
+    assert.equal((await catalog(uploadToken)).status, 401)
+    assert.equal((await upload(randomUUID(), token)).status, 401)
+    const row = await db.from('video_upload_tokens')
+      .where({ type: 'video_catalog_token', tokenable_id: owner.id })
+      .orderBy('id', 'desc').firstOrFail()
+    assert.deepEqual(JSON.parse(row.abilities), ['video:read'])
+    const tokens = () => db.from('video_upload_tokens').where('id', row.id)
+    await tokens().update({ expires_at: new Date(Date.now() - 60000) })
+    assert.equal((await catalog(token)).status, 401)
+    await tokens().update({ expires_at: row.expires_at })
+    assert.equal(await User.uploadTokens.delete(owner, row.id), 0)
+    assert.equal(await User.catalogTokens.delete(otherMember, row.id), 0)
+    assert.equal((await catalog(token)).status, 200)
+    await User.catalogTokens.delete(owner, row.id)
+    assert.equal((await catalog(token)).status, 401)
   })
 
   test('keeps a minimal import private and replays within each account', async ({ assert }) => {
