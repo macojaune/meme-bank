@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
+import { Button } from '~/components/motion/button/base'
+import VideoDetailsEditor, { type VideoDetails } from './video_details_editor'
 
-interface Person {
-  id: string
-  name: string
-  socialMediaHandle?: string | null
-}
+type Person = VideoDetails['persons'][number]
 
 interface Video {
   id: string
@@ -20,7 +18,6 @@ interface Video {
   region: string | null
   createdAt: string
   userId: string
-  persons?: Person[]
 }
 
 interface VideoModalProps {
@@ -29,6 +26,7 @@ interface VideoModalProps {
   onClose: () => void
   onDelete: (videoId: string) => void
   onPersonClick?: (person: Person) => void
+  onDetailsChange?: (details: VideoDetails) => void
 }
 
 const REGIONS: Record<string, { name: string; flag: string }> = {
@@ -67,22 +65,6 @@ const DownloadIcon = () => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-)
-
-const TrashIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 )
 
@@ -286,74 +268,97 @@ function TranscriptionSection({ videoId }: { videoId: string }) {
   )
 }
 
-function PersonsSection({
-  videoId,
+function PeopleAndCategories({
+  details,
   onPersonClick,
 }: {
-  videoId: string
+  details: VideoDetails
   onPersonClick?: (person: Person) => void
 }) {
-  const [persons, setPersons] = useState<Person[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    loadPersons()
-  }, [videoId])
-
-  const loadPersons = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/v1/videos/${videoId}/persons`)
-      const data = await response.json()
-      setPersons(data.data || [])
-    } catch (err) {
-      console.error('Failed to load persons')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-gray-100 border-4 border-black p-4 text-sm font-bold">Chargement...</div>
-    )
-  }
-
   return (
-    <div className="bg-gray-100 border-4 border-black p-4">
-      <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-2">
-        <h3 className="font-black uppercase text-sm">PERSONNES</h3>
+    <section className="space-y-4 border-4 border-black bg-gray-100 p-4">
+      <div>
+        <h3 className="mb-2 text-sm font-black uppercase">Personnes</h3>
+        <div className="flex flex-wrap gap-2">
+          {details.persons.length ? (
+            details.persons.map((person) =>
+              onPersonClick ? (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => onPersonClick(person)}
+                  className="border-2 border-black bg-cyan px-3 py-1.5 text-sm font-bold hover:bg-black hover:text-white"
+                >
+                  {person.name}
+                </button>
+              ) : (
+                <span
+                  key={person.id}
+                  className="border-2 border-black bg-cyan px-3 py-1.5 text-sm font-bold"
+                >
+                  {person.name}
+                </span>
+              )
+            )
+          ) : (
+            <span className="text-sm text-gray-600">Aucune personne identifiée</span>
+          )}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {persons.length > 0 ? (
-          persons.map((person) => (
-            <button
-              key={person.id}
-              type="button"
-              onClick={() => onPersonClick?.(person)}
-              className="px-3 py-1.5 bg-cyan border-2 border-black font-bold text-sm hover:bg-black hover:text-white transition-colors"
-            >
-              {person.name}
-            </button>
-          ))
-        ) : (
-          <span className="text-sm font-medium text-gray-500 italic">
-            Aucune personne identifiee
-          </span>
-        )}
+      <div>
+        <h3 className="mb-2 text-sm font-black uppercase">Catégories</h3>
+        <div className="flex flex-wrap gap-2">
+          {details.categories.length ? (
+            details.categories.map((category) => (
+              <span
+                key={category.id}
+                className="border-2 border-black bg-yellow-300 px-3 py-1.5 text-sm font-bold"
+              >
+                {category.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-gray-600">Aucune catégorie</span>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
 
-export default function VideoModal({
+export default function VideoModal({ video, ...props }: VideoModalProps) {
+  return video ? <VideoModalContent key={video.id} video={video} {...props} /> : null
+}
+
+function VideoModalContent({
   video,
   userId,
   onClose,
   onDelete,
   onPersonClick,
-}: VideoModalProps) {
-  if (!video) return null
+  onDetailsChange,
+}: Omit<VideoModalProps, 'video'> & { video: Video }) {
+  const [details, setDetails] = useState<VideoDetails | null>(null)
+  const [detailsError, setDetailsError] = useState(false)
+  const [editingDetails, setEditingDetails] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    async function load() {
+      try {
+        const response = await fetch(`/api/v1/videos/${video.id}/details`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error('Details unavailable')
+        const data: VideoDetails = await response.json()
+        if (!controller.signal.aborted) setDetails(data)
+      } catch {
+        if (!controller.signal.aborted) setDetailsError(true)
+      }
+    }
+    void load()
+    return () => controller.abort()
+  }, [video.id])
 
   const isOwner = video.userId === userId
   const region = getRegionDisplay(video.region)
@@ -410,7 +415,7 @@ export default function VideoModal({
             {/* Header: Title + Tags */}
             <div className="p-4 border-b-4 border-black bg-white">
               <h2 className="text-xl md:text-2xl font-black uppercase mb-3 leading-tight break-words">
-                {video.title || 'Sans titre'}
+                {(details?.title ?? video.title) || 'Sans titre'}
               </h2>
 
               <div className="flex flex-wrap gap-2">
@@ -425,7 +430,33 @@ export default function VideoModal({
 
             {/* Scrollable Content */}
             <div className="p-4 space-y-4 overflow-y-auto flex-1">
-              <PersonsSection videoId={video.id} onPersonClick={handlePersonClick} />
+              {details?.canEdit && !editingDetails && (
+                <Button
+                  type="button"
+                  onClick={() => setEditingDetails(true)}
+                  className="h-auto rounded-none border-2 border-black bg-yellow-400 px-4 py-2 font-black text-black hover:bg-yellow-300"
+                >
+                  Modifier la fiche
+                </Button>
+              )}
+              {details &&
+                (editingDetails ? (
+                  <VideoDetailsEditor
+                    details={details}
+                    onCancel={() => setEditingDetails(false)}
+                    onSave={(updated) => {
+                      setDetails(updated)
+                      setEditingDetails(false)
+                      onDetailsChange?.(updated)
+                    }}
+                  />
+                ) : (
+                  <PeopleAndCategories
+                    details={details}
+                    onPersonClick={onPersonClick ? handlePersonClick : undefined}
+                  />
+                ))}
+              {detailsError && <p role="status">Impossible de charger la fiche.</p>}
               <TranscriptionSection videoId={video.id} />
             </div>
 

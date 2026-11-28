@@ -405,6 +405,7 @@ export default function Dashboard({ auth, stats, videos, likedVideos = [] }: Das
           userId={auth.user.id.toString()}
           onClose={() => setSelectedVideo(null)}
           onDelete={handleDelete}
+          onDetailsChange={() => router.reload({ only: ['videos', 'likedVideos'] })}
         />
 
         {/* Footer */}

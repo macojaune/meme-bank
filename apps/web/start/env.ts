@@ -46,6 +46,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   TWITTER_CLIENT_ID: Env.schema.string.optional(),
   TWITTER_CLIENT_SECRET: Env.schema.string.optional(),
 
+  VIDEO_METADATA_EDITOR_ID: Env.schema.string.optional(),
+
   BREVO_API_KEY: Env.schema.string.optional(),
   BREVO_RESET_SENDER_EMAIL: Env.schema.string.optional({ format: 'email' }),
   PASSWORD_RESET_ORIGIN: Env.schema.string.optional(),

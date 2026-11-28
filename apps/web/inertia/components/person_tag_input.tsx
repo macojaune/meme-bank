@@ -79,7 +79,7 @@ export default function PersonTagInput({
 
     // Create a new person on the fly
     const newPerson: Person = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${crypto.randomUUID()}`,
       name: inputValue.trim(),
       socialMediaHandle: null,
       platform: null,
@@ -125,6 +125,7 @@ export default function PersonTagInput({
               )}
               <button
                 type="button"
+                aria-label={`Retirer ${person.name}`}
                 onClick={() => removePerson(person.id)}
                 className="ml-1 text-red-500 hover:text-red-700 font-bold"
               >

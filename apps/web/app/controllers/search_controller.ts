@@ -86,6 +86,10 @@ export default class SearchController {
           q.where('title', 'ilike', searchTerm)
             .orWhere('description', 'ilike', searchTerm)
             .orWhereIn('id', matchingVideoIds)
+            .orWhereHas('persons', (person) => person.where('persons.name', 'ilike', searchTerm))
+            .orWhereHas('categories', (category) =>
+              category.where('categories.name', 'ilike', searchTerm)
+            )
         })
       }
 
