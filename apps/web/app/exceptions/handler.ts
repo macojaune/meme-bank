@@ -32,10 +32,20 @@ export default class HttpExceptionHandler extends ExceptionHandler {
   async handle(error: unknown, ctx: HttpContext) {
     // Use the matched endpoint: the router also accepts its trailing-slash URL.
     const endpoint = ctx.route?.pattern
+    const invalidCsrf = (error as { code?: string } | null)?.code === 'E_BAD_CSRF_TOKEN'
+    if (
+      invalidCsrf &&
+      ctx.request.method() === 'PATCH' &&
+      endpoint === '/api/v1/videos/:id/details'
+    ) {
+      return ctx.response.header('Cache-Control', 'no-store').status(419).send({
+        message: 'La session de modification a expiré.',
+      })
+    }
     if (
       ctx.request.method() === 'POST' &&
       (endpoint === '/register' || endpoint === '/register/invitation') &&
-      (error as { code?: string } | null)?.code === 'E_BAD_CSRF_TOKEN'
+      invalidCsrf
     ) {
       // Shield normally flashes the request body, including an exchange token or
       // camelCase passwordConfirmation. Refuse CSRF without persisting any input.

@@ -123,7 +123,7 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
     assert.equal(((await ordinaryRead.json()) as { canEdit: boolean }).canEdit, false)
     assert.equal(ordinaryWrite.status, 403)
     assert.equal(privateEdit.status, 404)
-    assert.equal(noCsrf.status, 302)
+    assert.equal(noCsrf.status, 419)
     assert.equal(noCategoryCreation.status, 403)
   })
 
@@ -191,6 +191,17 @@ test.group('Video details — isolated HTTP and PostgreSQL', (group) => {
     })
     assert.equal(replay.status, 200)
     assert.deepEqual(await replay.json(), data)
+
+    const addCategory = await editor.request(path, 'PATCH', {
+      ...authPayload,
+      title: '',
+      personIds: data.persons.map(({ id }) => id),
+      categoryIds: data.categories.map(({ id }) => id),
+      newCategory: 'vendredi',
+    })
+    assert.equal(addCategory.status, 200, await addCategory.clone().text())
+    const updated = (await addCategory.json()) as { categories: { name: string }[] }
+    assert.deepEqual(updated.categories.map(({ name }) => name).sort(), ['Réactions', 'vendredi'])
 
     const remove = await owner.request(path, 'PATCH', {
       ...authPayload,
