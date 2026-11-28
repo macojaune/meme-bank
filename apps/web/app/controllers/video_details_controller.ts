@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
-import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import { createHash, randomUUID } from 'node:crypto'
 import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
@@ -21,33 +20,6 @@ const detailsValidator = vine.compile(
     newCategory: vine.string().trim().minLength(2).maxLength(60).optional(),
   })
 )
-
-const categoryValidator = vine.compile(
-  vine.object({ name: vine.string().trim().minLength(2).maxLength(60) })
-)
-
-async function resolveCategory(trx: TransactionClientContract, input: string, canCreate: boolean) {
-  const name = input.normalize('NFC')
-  const key = name.toLowerCase()
-  await trx.rawQuery('select pg_advisory_xact_lock(hashtextextended(?, 0))', [
-    'memebank-category:' + key,
-  ])
-  const existing = await Category.query({ client: trx })
-    .whereRaw('lower(name) = ?', [key])
-    .orderBy('id')
-    .first()
-
-  if (existing || !canCreate) return existing
-  return Category.create(
-    {
-      name,
-      slug: 'categorie-' + createHash('sha256').update(key).digest('hex'),
-      isActive: true,
-      displayOrder: 0,
-    },
-    { client: trx }
-  )
-}
 
 function permissions(video: Video, userId: string) {
   const canCreateCategory = env.get('VIDEO_METADATA_EDITOR_ID') === userId
@@ -88,38 +60,6 @@ export default class VideoDetailsController {
     const video = await Video.find(params.id)
     if (!video || !canViewVideo(video, userId)) return response.notFound()
     return response.ok(await details(video, userId))
-  }
-
-  async addCategory({ params, response, auth, request }: HttpContext) {
-    const userId = auth.user!.id
-    return db.transaction(async (trx) => {
-      const video = await Video.query({ client: trx }).where('id', params.id).forUpdate().first()
-      if (!video || !canViewVideo(video, userId)) return response.notFound()
-      if (!permissions(video, userId).canCreateCategory) return response.forbidden()
-
-      const { name } = await request.validateUsing(categoryValidator)
-      if (name.includes('\0')) {
-        return response.unprocessableEntity({
-          message: 'Le nom de la catégorie contient un caractère invalide.',
-        })
-      }
-      await video.load('categories')
-      const hasRoom = video.categories.length < 20
-      const category = await resolveCategory(trx, name, hasRoom)
-      if (category && !category.isActive) {
-        return response.unprocessableEntity({ message: 'Cette catégorie est désactivée.' })
-      }
-      const alreadyLinked = category && video.categories.some(({ id }) => id === category.id)
-      if (!category || (!hasRoom && !alreadyLinked)) {
-        return response.unprocessableEntity({ message: 'La fiche contient déjà 20 catégories.' })
-      }
-      if (!alreadyLinked) {
-        await video.related('categories').attach({ [category.id]: { id: randomUUID() } })
-        video.updatedAt = DateTime.now()
-        await video.save()
-      }
-      return response.ok({ id: category.id, name: category.name })
-    })
   }
 
   async update({ params, response, auth, request }: HttpContext) {
@@ -171,10 +111,29 @@ export default class VideoDetailsController {
       }
 
       if (data.newCategory) {
-        const category = await resolveCategory(trx, data.newCategory, true)
-        if (!category?.isActive) {
+        const name = data.newCategory.normalize('NFC')
+        const key = name.toLowerCase()
+        await trx.rawQuery('select pg_advisory_xact_lock(hashtextextended(?, 0))', [
+          'memebank-category:' + key,
+        ])
+        const existing = await Category.query({ client: trx })
+          .whereRaw('lower(name) = ?', [key])
+          .orderBy('id')
+          .first()
+        if (existing && !existing.isActive) {
           return response.unprocessableEntity({ message: 'Cette catégorie est désactivée.' })
         }
+        const category =
+          existing ??
+          (await Category.create(
+            {
+              name,
+              slug: 'categorie-' + createHash('sha256').update(key).digest('hex'),
+              isActive: true,
+              displayOrder: 0,
+            },
+            { client: trx }
+          ))
         categories.add(category.id)
       }
 

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Button } from '~/components/motion/button/base'
 import {
   MultiSelect,
   MultiSelectContent,
@@ -30,7 +29,6 @@ export default function CategoryPicker({
   canCreate,
   disabled,
   onChange,
-  onAdd,
 }: {
   options: Category[]
   ids: string[]
@@ -38,10 +36,8 @@ export default function CategoryPicker({
   canCreate: boolean
   disabled: boolean
   onChange: (ids: string[], newName: string) => void
-  onAdd: (name: string) => Promise<boolean>
 }) {
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const candidate = query.trim()
   const canAdd =
     canCreate &&
@@ -62,45 +58,24 @@ export default function CategoryPicker({
             next.includes(newCategoryValue) ? draft : ''
           )
         }
-        open={open}
-        onOpenChange={setOpen}
         query={query}
         onQueryChange={setQuery}
         disabled={disabled}
         filter={(_, text, [name = '']) => searchText(name).includes(searchText(text))}
         labels={{ removeValue: 'Retirer {label}' }}
       >
-        <div className="flex items-start gap-2">
-          <MultiSelectTrigger className="min-w-0 rounded-none border-2 border-black bg-white text-black focus-within:ring-black">
-            <MultiSelectValue
-              placeholder=""
-              chipClassName={`${categoryTagClass} h-auto rounded-none [clip-path:none]! text-black [&_button]:text-black`}
-            />
-            <MultiSelectInput
-              aria-label="Catégories"
-              placeholder={
-                canCreate ? 'Rechercher ou ajouter une catégorie' : 'Rechercher une catégorie'
-              }
-            />
-          </MultiSelectTrigger>
-          {canCreate && (
-            <Button
-              type="button"
-              aria-label="Valider l’ajout de la catégorie"
-              title="Valider l’ajout de la catégorie"
-              disabled={disabled || !draft}
-              onClick={async () => {
-                if (draft && (await onAdd(draft))) {
-                  setQuery('')
-                  setOpen(false)
-                }
-              }}
-              className="size-11 shrink-0 rounded-none border-2 border-black bg-yellow-400 p-0 text-xl font-black text-black hover:bg-yellow-300 focus-visible:outline-2"
-            >
-              <span aria-hidden="true">+</span>
-            </Button>
-          )}
-        </div>
+        <MultiSelectTrigger className="min-w-0 rounded-none border-2 border-black bg-white text-black focus-within:ring-black">
+          <MultiSelectValue
+            placeholder=""
+            chipClassName={`${categoryTagClass} h-auto rounded-none [clip-path:none]! text-black [&_button]:text-black`}
+          />
+          <MultiSelectInput
+            aria-label="Catégories"
+            placeholder={
+              canCreate ? 'Rechercher ou ajouter une catégorie' : 'Rechercher une catégorie'
+            }
+          />
+        </MultiSelectTrigger>
         <MultiSelectContent className="rounded-none border-2 border-black bg-white text-black shadow-[4px_4px_0px_black]">
           <MultiSelectList ariaLabel="Catégories existantes" className="max-h-48">
             {options.map(({ id, name }) => (
